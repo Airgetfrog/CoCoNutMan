@@ -1,0 +1,23 @@
+enum some_enum {
+    prefix = SE,
+    values = {a, b}
+}
+
+config my_globals {
+    info = "Test config pls ignore",
+    configfile = true,
+    fields = {
+        int verbosity = 3 {
+            info = "Sets the verbosity",
+            options = {-v, --verbosity}
+        },
+        bool help_enabled {
+            info = "Show this message",
+            options = {-h, --help}
+        },
+        string list infiles {
+            info = "Input files",
+            argument
+        }
+    }
+}
