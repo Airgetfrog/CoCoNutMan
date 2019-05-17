@@ -34,7 +34,7 @@ MultiOption *create_multioption(char *info, array *attributes) {
     node->info = info;
     node->attributes = attributes;
     node->options = NULL;
-    node->setters = NULL;
+    node->fields = NULL;
     return node;
 }
 
@@ -51,6 +51,7 @@ OptionSet *create_option_set(char *info, array *attributes) {
     node->attributes = attributes;
     node->options = NULL;
     node->tokens = NULL;
+    node->separator = NULL;
     return node;
 }
 

@@ -10,8 +10,8 @@
 
 #include "cfg.h"
 #include "print-cfg.h"
-#include "check-cfg.h"
 #include "convert-cfg.h"
+#include "check-cfg.h"
 
 // Defined in parser
 extern Configuration *parse(FILE *fp);
@@ -58,7 +58,7 @@ static FILE *open_input_file(char *path) {
 
 void exit_compile_error(void) {
     PRINT_COLOR(MAGENTA);
-    fprintf(stderr, "Errors where found, code generation terminated.\n");
+    fprintf(stderr, "Errors were found, code generation terminated.\n");
     PRINT_COLOR(RESET_COLOR);
     exit(INVALID_CONFIG);
 }
@@ -116,11 +116,13 @@ int main(int argc, char *argv[]) {
 
     fclose(f);
 
-    if (check_configuration(parse_result)) {
+    if (check_and_convert_attributes(parse_result)) {
         exit_compile_error();
     }
 
-    convert_attributes(parse_result);
+    if (check_configuration(parse_result)) {
+        exit_compile_error();
+    }
 
     // // Sort to prevent changes in order of attributes trigger regeneration of
     // // code.

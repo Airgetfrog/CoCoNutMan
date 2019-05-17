@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _CFG_H
+#define _CFG_H
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -38,8 +39,8 @@ typedef struct FieldValue {
 enum Attributes {
     E_prefix,
     E_values,
-    GF_options,
-    GF_fields,
+    MO_options,
+    MO_fields,
     OS_options,
     OS_tokens,
     OS_separator,
@@ -75,7 +76,7 @@ typedef struct MultiOption {
     char *info;
     array *attributes;
     array *options;
-    array *setters;
+    array *fields;
 } MultiOption;
 
 typedef struct Setter {
@@ -88,6 +89,7 @@ typedef struct OptionSet {
     array *attributes;
     array *options;
     array *tokens;
+    char *separator;
 } OptionSet;
 
 typedef struct Token {
@@ -128,3 +130,5 @@ typedef struct Range {
     struct FieldValue *left_bound;
     struct FieldValue *right_bound;
 } Range;
+
+#endif

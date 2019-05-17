@@ -1,6 +1,6 @@
-#ifndef _CONVERT_CFG_H
-#define _CONVERT_CFG_H
+#ifndef _CONVERT_CONFIG_H
+#define _CONVERT_CONFIG_H
 
-void convert_attributes(Configuration *configuration);
+int check_and_convert_attributes(Configuration *configuration);
 
 #endif

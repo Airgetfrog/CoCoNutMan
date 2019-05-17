@@ -149,10 +149,34 @@ entry: entry enum { array_append(config_enums, $2); }
     | enum { array_append(config_enums, $1); }
     | multioption { array_append(config_multioptions, $1); }
     | optionset { array_append(config_optionsets, $1); }
-    | entry targetoptions { config_targetoptions = $2; }
-    | targetoptions { config_targetoptions = $1; }
-    | entry config { config_config = $2; }
-    | config { config_config = $1; }
+    | entry targetoptions
+    {
+        if (config_targetoptions) {
+            yyerror("Targetoptions are already defined.");
+        }
+        config_targetoptions = $2;
+    }
+    | targetoptions
+    {
+        if (config_targetoptions) {
+            yyerror("Targetoptions are already defined.");
+        }
+        config_targetoptions = $1;
+    }
+    | entry config
+    {
+        if (config_config) {
+            yyerror("A root config is already defined.");
+        }
+        config_config = $2;
+    }
+    | config
+    {
+        if (config_config) {
+            yyerror("A root config is already defined.");
+        }
+        config_config = $1;
+    }
     ;
 
 enum: T_ENUM T_ID '{' enum_attributes '}'
@@ -203,8 +227,8 @@ multioption_attributes: multioption_attributes ',' multioption_attribute
     }
     ;
 
-multioption_attribute: options { $$ = create_attribute_array(GF_options, $1); }
-    | multioption_fields { $$ = create_attribute_array(GF_fields, $1); }
+multioption_attribute: options { $$ = create_attribute_array(MO_options, $1); }
+    | multioption_fields { $$ = create_attribute_array(MO_fields, $1); }
     ;
 
 options: T_OPTIONS '=' T_OPTION
@@ -326,6 +350,22 @@ field: config
     | type T_ID defaultval '{' info field_attributes '}'
     {
         $$ = create_field($2, $5, $1, false, $3, $6);
+    }
+    | type T_LIST T_ID defaultval '{' info '}'
+    {
+        $$ = create_field($3, $6, $1, true, $4, create_array());
+    }
+    | type T_ID defaultval '{' info '}'
+    {
+        $$ = create_field($2, $5, $1, false, $3, create_array());
+    }
+    | type T_LIST T_ID defaultval
+    {
+        $$ = create_field($3, NULL, $1, true, $4, create_array());
+    }
+    | type T_ID defaultval
+    {
+        $$ = create_field($2, NULL, $1, false, $3, create_array());
     }
     ;
 
