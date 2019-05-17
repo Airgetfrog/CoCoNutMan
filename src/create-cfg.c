@@ -3,15 +3,15 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "cfgast.h"
-#include "create-cfgast.h"
+#include "cfg.h"
+#include "create-cfg.h"
 
 #include "lib/array.h"
 #include "lib/memory.h"
 #include "lib/print.h"
 
-ConfigSpec *create_config_spec(array *enums, array *multioptions, array *optionsets, array *targetoptions, Config *config) {
-    ConfigSpec *node = mem_alloc(sizeof(ConfigSpec));
+Configuration *create_configuration(array *enums, array *multioptions, array *optionsets, array *targetoptions, Config *config) {
+    Configuration *node = mem_alloc(sizeof(Configuration));
     node->enums = enums;
     node->multioptions = multioptions;
     node->optionsets = optionsets;

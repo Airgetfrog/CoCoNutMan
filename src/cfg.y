@@ -5,8 +5,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "cfgast.h"
-#include "create-cfgast.h"
+#include "cfg.h"
+#include "create-cfg.h"
 
 #include "lib/array.h"
 #include "lib/imap.h"
@@ -23,7 +23,7 @@ static array *config_optionsets;
 static array *config_targetoptions;
 static struct Config *config_config;
 
-static struct ConfigSpec* parse_result = NULL;
+static struct Configuration* parse_result = NULL;
 
 char *yy_filename;
 array *yy_lines;
@@ -65,7 +65,7 @@ static array *list_append(struct array *array, void *element,  struct ParserLoca
     char *string;
     bool boolval;
     struct array *array;
-    struct ConfigSpec *config_spec;
+    struct Configuration *configuration;
     struct FieldValue *field_value;
     struct Attribute *attribute;
     struct Enum *enum_type;
@@ -120,7 +120,7 @@ static array *list_append(struct array *array, void *element,  struct ParserLoca
 %token T_EPILOGUE "epilogue"
 %token T_LIST "list"
 
-%type<config_spec> root
+%type<configuration> root
 %type<enum_type> enum
 %type<array> enum_attributes values multioption_attributes options multioption_fields setters optionset_attributes attribute_tokens tokens targetoptions config_attributes config_fields fields field_attributes idlist optionlist nested_id vallist
 %type<attribute> enum_attribute multioption_attribute optionset_attribute config_attribute field_attribute
@@ -141,7 +141,7 @@ static array *list_append(struct array *array, void *element,  struct ParserLoca
 %%
 
 /* Root of the config, creating the final config */
-root: entry { parse_result = create_config_spec(config_enums, config_multioptions, config_optionsets, config_targetoptions, config_config); };
+root: entry { parse_result = create_configuration(config_enums, config_multioptions, config_optionsets, config_targetoptions, config_config); };
 
 entry: entry enum { array_append(config_enums, $2); }
     | entry multioption { array_append(config_multioptions, $2); }
@@ -477,7 +477,7 @@ static array *list_append(struct array *array, void *element,  struct ParserLoca
     return array;
 }
 
-struct ConfigSpec* parse(FILE *fp) {
+struct Configuration* parse(FILE *fp) {
     yyin = fp;
     config_enums = create_array();
     config_multioptions = create_array();
@@ -490,5 +490,5 @@ struct ConfigSpec* parse(FILE *fp) {
         yy_lines, yy_parser_locations);
     yyparse();
     yylex_destroy();
-    return parse_result;;
+    return parse_result;
 }

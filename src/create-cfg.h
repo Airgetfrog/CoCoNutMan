@@ -1,11 +1,11 @@
-#ifndef _CREATE_AST_H
-#define _CREATE_AST_H
+#ifndef _CREATE_CFG_H
+#define _CREATE_CFG_H
 
 #include "lib/array.h"
 #include <stdbool.h>
 #include <stdint.h>
 
-ConfigSpec *create_config_spec(array *enums, array *groupflags, array *optionsets, array *targetoptions, Config *config);
+Configuration *create_configuration(array *enums, array *groupflags, array *optionsets, array *targetoptions, Config *config);
 
 Enum *create_enum(char *id, array *attributes);
 

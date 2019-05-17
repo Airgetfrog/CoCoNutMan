@@ -5,13 +5,13 @@
 
 #include "lib/array.h"
 
-typedef struct ConfigSpec {
+typedef struct Configuration {
     array *enums;
     array *multioptions;
     array *optionsets;
     array *targetoptions;
     struct Config *config;
-} ConfigSpec;
+} Configuration;
 
 enum FieldType {
     FT_uint,

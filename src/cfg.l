@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include <regex.h>
 
-#include "cfgast.h"
+#include "cfg.h"
 #include "lib/print.h"
 #include "lib/errors.h"
 #include "lib/array.h"

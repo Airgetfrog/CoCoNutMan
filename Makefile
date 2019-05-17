@@ -8,10 +8,10 @@ PARSER_OUT = coconutman.parser.c
 INCLUDE_DIR = include/
 
 LIB_C_DIR = src/lib/
-LIB_SRC = $(filter-out $(SRC_DIR)$(LEXER_OUT) $(SRC_DIR)$(PARSER_OUT),$(foreach dir,$(LIB_C_DIR),$(wildcard $(dir)*.c)))
+LIB_SRC = $(foreach dir,$(LIB_C_DIR),$(wildcard $(dir)*.c))
 
 SRC_DIR = src/
-SRC = $(foreach dir,$(SRC_DIR),$(wildcard $(dir)*.c))
+SRC = $(filter-out $(SRC_DIR)$(LEXER_OUT) $(SRC_DIR)$(PARSER_OUT),$(foreach dir,$(SRC_DIR),$(wildcard $(dir)*.c)))
 
 coconutman: $(LIB_SRC:.c=.o) $(SRC:.c=.o) $(SRC_DIR)$(LEXER_OUT:.c=.o) $(SRC_DIR)$(PARSER_OUT:.c=.o)
 	$(CC) -o $(TARGET) $(LIB_SRC:.c=.o) $(SRC:.c=.o) $(SRC_DIR)$(LEXER_OUT:.c=.o) $(SRC_DIR)$(PARSER_OUT:.c=.o) $(LDFLAGS)

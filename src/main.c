@@ -8,11 +8,13 @@
 #include "lib/errors.h"
 #include "lib/print.h"
 
-#include "cfgast.h"
-#include "print-cfgast.h"
+#include "cfg.h"
+#include "print-cfg.h"
+#include "check-cfg.h"
+#include "convert-cfg.h"
 
 // Defined in parser
-extern ConfigSpec *parse(FILE *fp);
+extern Configuration *parse(FILE *fp);
 extern char *yy_filename;
 
 static void usage(char *program) {
@@ -110,21 +112,23 @@ int main(int argc, char *argv[]) {
 
     FILE *f = open_input_file(yy_filename);
 
-    ConfigSpec *parse_result = parse(f);
+    Configuration *parse_result = parse(f);
 
     fclose(f);
 
-    // if (check_config(parse_result)) {
-    //     exit_compile_error();
-    // }
-    //
+    if (check_configuration(parse_result)) {
+        exit_compile_error();
+    }
+
+    convert_attributes(parse_result);
+
     // // Sort to prevent changes in order of attributes trigger regeneration of
     // // code.
     // sort_config(parse_result);
     // hash_config(parse_result);
-    //
+
     if (verbose_flag) {
-        print_configspec(parse_result);
+        print_configuration(parse_result);
     }
     //
     // // Set the parse tree for file generation.
