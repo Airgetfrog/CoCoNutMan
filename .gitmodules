@@ -1,0 +1,3 @@
+[submodule "CoCoNut-lib"]
+	path = CoCoNut-lib
+	url = git@github.com:leegbestand/CoCoNut-lib.git
