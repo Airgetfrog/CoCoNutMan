@@ -67,6 +67,7 @@ Config *create_config(char *id, char *info, array *attributes) {
     node->id = id;
     node->info = info;
     node->attributes = attributes;
+    node->configfile = NULL;
     node->fields = NULL;
     return node;
 }
@@ -80,11 +81,34 @@ Field *create_field(char *id, char *info, enum FieldType type, bool is_list, Fie
     node->config = NULL;
     node->default_value = default_value;
     node->attributes = attributes;
+    node->configfile = false;
     node->options = NULL;
+    node->is_argument = false;
     node->separator = NULL;
     node->range = NULL;
     node->prefix = NULL;
     node->values = NULL;
+    node->enum_id = NULL;
+    return node;
+}
+
+Field *create_field_enum(char *id, char *info, enum FieldType type, bool is_list, FieldValue *default_value, array *attributes, char *enum_id) {
+    Field *node = mem_alloc(sizeof(Field));
+    node->id = id;
+    node->info = info;
+    node->type = type;
+    node->is_list = is_list;
+    node->config = NULL;
+    node->default_value = default_value;
+    node->attributes = attributes;
+    node->configfile = false;
+    node->options = NULL;
+    node->is_argument = false;
+    node->separator = NULL;
+    node->range = NULL;
+    node->prefix = NULL;
+    node->values = NULL;
+    node->enum_id = enum_id;
     return node;
 }
 
@@ -94,12 +118,10 @@ Field *create_field_config(Config *config) {
     return node;
 }
 
-Range *create_range(bool left_open, bool left_inf, bool right_open, bool right_inf, FieldValue *left_bound, FieldValue *right_bound) {
+Range *create_range(bool left_open, bool right_open, FieldValue *left_bound, FieldValue *right_bound) {
     Range *node = mem_alloc(sizeof(Range));
     node->left_open = left_open;
     node->right_open = right_open;
-    node->left_inf = left_inf;
-    node->right_inf = right_inf;
     node->left_bound = left_bound;
     node->right_bound = right_bound;
     return node;
@@ -144,6 +166,13 @@ FieldValue *create_field_value_array(array *value) {
     FieldValue *node = mem_alloc(sizeof(FieldValue));
     node->type = FT_list;
     node->value.array_value = value;
+    return node;
+}
+
+FieldValue *create_field_value_enum(char *value) {
+    FieldValue *node = mem_alloc(sizeof(FieldValue));
+    node->type = FT_enum;
+    node->value.string_value = value;
     return node;
 }
 

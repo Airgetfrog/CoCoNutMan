@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "lib/array.h"
+#include "lib/smap.h"
 
 typedef struct Configuration {
     array *enums;
@@ -82,6 +83,7 @@ typedef struct MultiOption {
 typedef struct Setter {
     array *ids;
     struct FieldValue *value;
+    struct Field *field;
 } Setter;
 
 typedef struct OptionSet {
@@ -103,6 +105,8 @@ typedef struct Config {
     array *attributes;
     bool configfile;
     array *fields;
+
+    smap_t *smap;
 } Config;
 
 typedef struct Field {
@@ -120,13 +124,12 @@ typedef struct Field {
     struct Range *range;
     char *prefix;
     array *values;
+    char *enum_id;
 } Field;
 
 typedef struct Range {
     bool left_open;
-    bool left_inf;
     bool right_open;
-    bool right_inf;
     struct FieldValue *left_bound;
     struct FieldValue *right_bound;
 } Range;

@@ -5,7 +5,7 @@ LEXER_OUT = coconutman.lexer.c
 PARSER_IN = cfg.y
 PARSER_OUT = coconutman.parser.c
 
-INCLUDE_DIR = CoCoNut-lib/include
+INCLUDE = -I CoCoNut-lib/include
 
 LIB_C_DIR = src/lib/
 LIB_SRC = $(foreach dir,$(LIB_C_DIR),$(wildcard $(dir)*.c))
@@ -15,14 +15,16 @@ SRC = $(filter-out $(SRC_DIR)$(LEXER_OUT) $(SRC_DIR)$(PARSER_OUT),$(foreach dir,
 
 LDFLAGS = -lcoconut -L CoCoNut-lib/bin
 
+DEBUG = 
+
 coconutman: $(LIB_SRC:.c=.o) $(SRC:.c=.o) $(SRC_DIR)$(LEXER_OUT:.c=.o) $(SRC_DIR)$(PARSER_OUT:.c=.o)
-	$(CC) -o $(TARGET) $(LIB_SRC:.c=.o) $(SRC:.c=.o) $(SRC_DIR)$(LEXER_OUT:.c=.o) $(SRC_DIR)$(PARSER_OUT:.c=.o) $(LDFLAGS)
+	$(CC) $(DEBUG) -o $(TARGET) $(LIB_SRC:.c=.o) $(SRC:.c=.o) $(SRC_DIR)$(LEXER_OUT:.c=.o) $(SRC_DIR)$(PARSER_OUT:.c=.o) $(LDFLAGS)
 
 $(SRC_DIR)$(LEXER_OUT:.c=.o): $(SRC_DIR)$(LEXER_OUT) $(SRC_DIR)$(PARSER_OUT:.c=.h)
-	$(CC) -I $(INCLUDE_DIR) -o $@ -c $< $(LDFLAGS)
+	$(CC) $(DEBUG) $(INCLUDE) -o $@ -c $< $(LDFLAGS)
 
 $(SRC_DIR)$(PARSER_OUT:.c=.o): $(SRC_DIR)$(PARSER_OUT) $(SRC_DIR)$(LEXER_OUT:.c=.h)
-	$(CC) -I $(INCLUDE_DIR) -o $@ -c $< $(LDFLAGS)
+	$(CC) $(DEBUG) $(INCLUDE) -o $@ -c $< $(LDFLAGS)
 
 $(SRC_DIR)$(LEXER_OUT:.c=.h): $(SRC_DIR)$(LEXER_OUT)
 $(SRC_DIR)$(PARSER_OUT:.c=.h): $(SRC_DIR)$(PARSER_OUT)
@@ -34,7 +36,7 @@ $(SRC_DIR)$(PARSER_OUT): $(SRC_DIR)$(PARSER_IN)
 	bison -d -o $@ $<
 
 %.o: %.c
-	$(CC) $(CFLAGS) -I $(INCLUDE_DIR) -o $@ -c $<
+	$(CC) $(DEBUG) $(CFLAGS) $(INCLUDE) -o $@ -c $<
 
 clean:
 	rm -f $(LIB_SRC:.c=.o) $(SRC:.c=.o) $(SRC_DIR)$(LEXER_OUT) $(SRC_DIR)$(PARSER_OUT) $(SRC_DIR)$(LEXER_OUT:.c=.o) $(SRC_DIR)$(PARSER_OUT:.c=.o) $(SRC_DIR)$(LEXER_OUT:.c=.h) $(SRC_DIR)$(PARSER_OUT:.c=.h)

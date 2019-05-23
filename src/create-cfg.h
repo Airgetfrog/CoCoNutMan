@@ -21,9 +21,11 @@ Config *create_config(char *id, char *info, array *attributes);
 
 Field *create_field(char *id, char *info, enum FieldType type, bool is_list, FieldValue *default_value, array *attributes);
 
+Field *create_field_enum(char *id, char *info, enum FieldType type, bool is_list, FieldValue *default_value, array *attributes, char *enum_id);
+
 Field *create_field_config(Config *config);
 
-Range *create_range(bool left_open, bool left_inf, bool right_open, bool right_inf, FieldValue *left_bound, FieldValue *right_bound);
+Range *create_range(bool left_open, bool right_open, FieldValue *left_bound, FieldValue *right_bound);
 
 FieldValue *create_field_value_uint(uint64_t value);
 
@@ -36,6 +38,8 @@ FieldValue *create_field_value_string(char *value);
 FieldValue *create_field_value_bool(bool value);
 
 FieldValue *create_field_value_array(array *value);
+
+FieldValue *create_field_value_enum(char *value);
 
 Attribute *create_attribute_bool(enum Attributes attribute, bool value);
 

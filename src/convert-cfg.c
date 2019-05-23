@@ -6,8 +6,15 @@
 #include "lib/print.h"
 #include "cfg.h"
 #include "cfg-names.h"
+#include "create-cfg.h"
+#include "lib/array.h"
+#include "lib/memory.h"
+#include "lib/smap.h"
+
+#define BQS "\033[1m‘%s’\033[0m"
 
 void convert_attributes(void *node, array *attributes) {
+    Field *field;
     for (size_t i = 0; i < array_size(attributes); i++) {
         Attribute *attribute = (Attribute *)array_get(attributes, i);
         switch (attribute->attribute) {
@@ -48,16 +55,36 @@ void convert_attributes(void *node, array *attributes) {
                 ((Field *)node)->is_argument = attribute->value.bool_value;
                 break;
             case F_separator:
-                ((Field *)node)->separator = attribute->value.string_value;
+                field = (Field *)node;
+                if (!field->is_list) {
+                    print_warning(attribute, "field " BQS " has separator but is not a list", field->id);
+                } else {
+                    field->separator = attribute->value.string_value;
+                }
                 break;
             case F_range:
-                ((Field *)node)->range = attribute->value.range_value;
+                field = (Field *)node;
+                if (field->type != FT_uint && field->type != FT_int && field->type != FT_float) {
+                    print_warning(attribute, "field " BQS " has range but is of type " BQS, field->id, FieldType_name(field->type));
+                } else {
+                    field->range = attribute->value.range_value;
+                }
                 break;
             case F_prefix:
-                ((Field *)node)->prefix = attribute->value.string_value;
+                field = (Field *)node;
+                if (field->type != FT_enum || field->enum_id) {
+                    print_warning(attribute, "field " BQS " has prefix but is not an enum", field->id);
+                } else {
+                    field->prefix = attribute->value.string_value;
+                }
                 break;
             case F_values:
-                ((Field *)node)->values = attribute->value.array_value;
+                field = (Field *)node;
+                if (field->type != FT_enum || field->enum_id) {
+                    print_warning(attribute, "field " BQS " has values but is not an enum", field->id);
+                } else {
+                    field->values = attribute->value.array_value;
+                }
                 break;
         }
     }
@@ -66,29 +93,29 @@ void convert_attributes(void *node, array *attributes) {
 int check_attributes(array *attributes) {
     int errors = 0;
 
-    size_t count = array_size(attributes);
-    for (size_t i = 0; i < count; i++) {
+    smap_t *attr_map = smap_init(32);
+    for (size_t i = 0; i < array_size(attributes); i++) {
         Attribute *attribute = (Attribute *)array_get(attributes, i);
         enum Attributes attribute_type = attribute->attribute;
-
-        for (size_t j = i + 1; j < count; j++) {
-            Attribute *attribute_j = (Attribute *)array_get(attributes, j);
-
-            if (attribute_type == attribute_j->attribute) {
-                print_warning(attribute_j, "Duplicate attribute %s.", Attribute_name(attribute_j->attribute));
-                errors++;
-                break;
-            }
+        char *aname = Attribute_name(attribute->attribute);
+        if (smap_retrieve(attr_map, aname)) {
+            print_warning(attribute, "duplicate attribute " BQS, aname);
+            print_note(smap_retrieve(attr_map, aname), "previous use of " BQS " was here", aname);
+            print_note_no_loc("final instance of duplicate attribute used");
+            errors++;
         }
+        smap_insert(attr_map, aname, attribute);
     }
+    smap_free(attr_map);
 
     return errors;
 }
 
-int check_and_convert_config(Config *config) {
+int check_and_convert_config(Config *config, bool configfile) {
     int errors = 0;
 
     errors += check_attributes(config->attributes);
+    config->configfile = configfile;
     if (!errors) {
         convert_attributes(config, config->attributes);
     }
@@ -96,10 +123,12 @@ int check_and_convert_config(Config *config) {
     for (size_t i = 0; i < array_size(config->fields); i++) {
         Field *field = (Field *)array_get(config->fields, i);
         if (field->config) {
-            errors += check_and_convert_config(field->config);
+            field->id = field->config->id;
+            errors += check_and_convert_config(field->config, config->configfile);
         } else {
             int local_errors = check_attributes(field->attributes);
             if (!local_errors) {
+                field->configfile = config->configfile;
                 convert_attributes(field, field->attributes);
             }
             errors += local_errors;
@@ -139,7 +168,7 @@ int check_and_convert_attributes(Configuration *configuration) {
         errors += local_errors;
     }
 
-    errors += check_and_convert_config(configuration->config);
+    errors += check_and_convert_config(configuration->config, false);
 
     return errors;
 }

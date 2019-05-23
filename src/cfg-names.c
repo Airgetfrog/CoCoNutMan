@@ -38,3 +38,24 @@ char *Attribute_name(enum Attributes attribute) {
             return "unnamed attribute";
     }
 }
+
+char *FieldType_name(enum FieldType type) {
+    switch (type) {
+        case FT_uint:
+            return "uint";
+        case FT_int:
+            return "int";
+        case FT_float:
+            return "float";
+        case FT_string:
+            return "string";
+        case FT_bool:
+            return "bool";
+        case FT_enum:
+            return "enum";
+        case FT_list:
+            return "list";
+        default:
+            return "unknown type";
+    }
+}

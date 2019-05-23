@@ -1,38 +1,54 @@
-enum some_enum {
-    prefix = SE,
-    values = {a, b}
+enum box_size {
+    prefix = BS,
+    values = {small, medium, large}
 }
 
 config my_globals {
     info = "Test config pls ignore",
     configfile = true,
     fields = {
-        int verbosity = 3 {
-            info = "Sets the verbosity",
-            options = {-v, --verbosity}
+        int a = 1 {
+            configfile = false,
+            range = (0->3)
         },
-        bool help_enabled {
-            options = {-h, --help}
-        },
-        string list infiles {
-            info = "Input files",
-            argument
-        },
-        config opts {
+        config b {
             fields = {
-                bool do_something {},
-                bool do_something_else {}
+                int a {
+                    argument
+                }
             }
-        }
+        },
+        float c,
+        int list d {
+            separator = ":"
+        },
+        bool e {
+        },
+        box_size package_size = small,
+        box_size list nesting_doll_size = [large; medium; small]
     }
 }
 
 multioption {
     options = -o,
     fields = {
-        opts.do_something = true,
-        opts.do_something_else = true
+        c = 0,
+        d = [0],
+        nesting_doll_size = [small; large]
     }
+}
+
+optionset {
+    options = --opts,
+    tokens = {
+        a = {
+            a = 1
+        },
+        b = {
+            c = 1
+        }
+    },
+    separator = ":"
 }
 
 targetoptions = {-t, --target}

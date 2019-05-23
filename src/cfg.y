@@ -197,8 +197,8 @@ enum_attributes: enum_attributes ',' enum_attribute
     }
     ;
 
-enum_attribute: prefix { $$ = create_attribute_string(E_prefix, $1); }
-    | values { $$ = create_attribute_array(E_values, $1); }
+enum_attribute: prefix { $$ = create_attribute_string(E_prefix, $1); new_location($$, &@$); }
+    | values { $$ = create_attribute_array(E_values, $1); new_location($$, &@$); }
     ;
 
 prefix: T_PREFIX '=' T_ID
@@ -208,7 +208,7 @@ prefix: T_PREFIX '=' T_ID
     }
     ;
 
-values: T_VALUES '=' '{' idlist '}' { $$ = $4; };
+values: T_VALUES '=' '{' idlist '}' { $$ = $4; new_location($4, &@3); };
 
 multioption: T_MULTIOPTION '{' info multioption_attributes '}'
     {
@@ -227,8 +227,8 @@ multioption_attributes: multioption_attributes ',' multioption_attribute
     }
     ;
 
-multioption_attribute: options { $$ = create_attribute_array(MO_options, $1); }
-    | multioption_fields { $$ = create_attribute_array(MO_fields, $1); }
+multioption_attribute: options { $$ = create_attribute_array(MO_options, $1); new_location($$, &@$); }
+    | multioption_fields { $$ = create_attribute_array(MO_fields, $1); new_location($$, &@$); }
     ;
 
 options: T_OPTIONS '=' T_OPTION
@@ -258,10 +258,17 @@ setters: setters ',' setter
 setter: nested_id '=' val
     {
         $$ = create_setter($1, $3);
+        new_location($3, &@3);
     }
     | nested_id '=' '?'
     {
         $$ = create_setter($1, NULL);
+    }
+    | nested_id '=' '[' vallist ']'
+    {
+        FieldValue *fv = create_field_value_array($4);
+        $$ = create_setter($1, fv);
+        new_location(fv, &@3);
     }
     ;
 
@@ -282,9 +289,9 @@ optionset_attributes: optionset_attributes ',' optionset_attribute
     }
     ;
 
-optionset_attribute: options { $$ = create_attribute_array(OS_options, $1); }
-    | attribute_tokens { $$ = create_attribute_array(OS_tokens, $1); }
-    | separator { $$ = create_attribute_string(OS_separator, $1); }
+optionset_attribute: options { $$ = create_attribute_array(OS_options, $1); new_location($$, &@$); }
+    | attribute_tokens { $$ = create_attribute_array(OS_tokens, $1); new_location($$, &@$); }
+    | separator { $$ = create_attribute_string(OS_separator, $1); new_location($$, &@$); }
     ;
 
 attribute_tokens: T_TOKENS '=' '{' tokens '}' { $$ = $4; };
@@ -299,15 +306,24 @@ tokens: tokens ',' token
     }
     ;
 
-token: T_ID '=' '{' setters '}' { $$ = create_token($1, $4); };
+token: T_ID '=' '{' setters '}'
+    {
+        $$ = create_token($1, $4);
+        new_location($1, &@1);
+    };
 
-separator: T_SEPARATOR '=' T_STRINGVAL { $$ = $3; };
+separator: T_SEPARATOR '=' T_STRINGVAL
+    {
+        $$ = $3;
+        new_location($3, &@3);
+    };
 
 targetoptions: T_TARGETOPTIONS '=' '{' optionlist '}' { $$ = $4; };
 
 config: T_CONFIG T_ID '{' info config_attributes '}'
     {
         $$ = create_config($2, $4, $5);
+        new_location($2, &@2);
     }
     ;
 
@@ -321,8 +337,8 @@ config_attributes: config_attributes ',' config_attribute
     }
     ;
 
-config_attribute: configfile { $$ = create_attribute_bool(C_configfile, $1); };
-    | config_fields { $$ = create_attribute_array(C_fields, $1); };
+config_attribute: configfile { $$ = create_attribute_bool(C_configfile, $1); new_location($$, &@$); }
+    | config_fields { $$ = create_attribute_array(C_fields, $1); new_location($$, &@$); };
     ;
 
 configfile: T_CONFIGFILE '=' T_BOOLVAL { $$ = $3; };
@@ -346,26 +362,64 @@ field: config
     | type T_LIST T_ID defaultval '{' info field_attributes '}'
     {
         $$ = create_field($3, $6, $1, true, $4, $7);
+        new_location($3, &@3);
     }
     | type T_ID defaultval '{' info field_attributes '}'
     {
         $$ = create_field($2, $5, $1, false, $3, $6);
+        new_location($2, &@2);
     }
     | type T_LIST T_ID defaultval '{' info '}'
     {
         $$ = create_field($3, $6, $1, true, $4, create_array());
+        new_location($3, &@3);
     }
     | type T_ID defaultval '{' info '}'
     {
         $$ = create_field($2, $5, $1, false, $3, create_array());
+        new_location($2, &@2);
     }
     | type T_LIST T_ID defaultval
     {
         $$ = create_field($3, NULL, $1, true, $4, create_array());
+        new_location($3, &@3);
     }
     | type T_ID defaultval
     {
         $$ = create_field($2, NULL, $1, false, $3, create_array());
+        new_location($2, &@2);
+    }
+    | T_ID T_LIST T_ID defaultval '{' info field_attributes '}'
+    {
+        $$ = create_field_enum($3, $6, FT_enum, true, $4, $7, $1);
+        new_location($3, &@3);
+    }
+    | T_ID T_ID defaultval '{' info field_attributes '}'
+    {
+        $$ = create_field_enum($2, $5, FT_enum, false, $3, $6, $1);
+        new_location($2, &@2);
+    }
+    | T_ID T_LIST T_ID defaultval '{' info '}'
+    {
+        $$ = create_field_enum($3, $6, FT_enum, true, $4, create_array(), $1);
+        new_location($3, &@3);
+    }
+    | T_ID T_ID defaultval '{' info '}'
+    {
+        $$ = create_field_enum($2, $5, FT_enum, false, $3, create_array(), $1);
+        new_location($2, &@2);
+    }
+    | T_ID T_LIST T_ID defaultval
+    {
+        $$ = create_field_enum($3, NULL, FT_enum, true, $4, create_array(), $1);
+        new_location($1, &@1);
+        new_location($3, &@3);
+    }
+    | T_ID T_ID defaultval
+    {
+        $$ = create_field_enum($2, NULL, FT_enum, false, $3, create_array(), $1);
+        new_location($1, &@1);
+        new_location($2, &@2);
     }
     ;
 
@@ -379,34 +433,39 @@ field_attributes: field_attributes ',' field_attribute
     }
     ;
 
-field_attribute: configfile { $$ = create_attribute_bool(F_configfile, $1); }
-    | options { $$ = create_attribute_array(F_options, $1); }
-    | argument { $$ = create_attribute_bool(F_argument, $1); }
-    | separator { $$ = create_attribute_string(F_separator, $1); }
-    | range_attribute { $$ = create_attribute_range(F_range, $1); }
-    | prefix { $$ = create_attribute_string(F_prefix, $1); }
-    | values { $$ = create_attribute_array(F_values, $1); }
+field_attribute: configfile { $$ = create_attribute_bool(F_configfile, $1); new_location($$, &@$); }
+    | options
+    {
+        $$ = create_attribute_array(F_options, $1);
+        new_location($1, &@1);
+        new_location($$, &@$);
+    }
+    | argument { $$ = create_attribute_bool(F_argument, $1); new_location($$, &@$); }
+    | separator { $$ = create_attribute_string(F_separator, $1); new_location($$, &@$); }
+    | range_attribute { $$ = create_attribute_range(F_range, $1); new_location($$, &@$); }
+    | prefix { $$ = create_attribute_string(F_prefix, $1); new_location($$, &@$); }
+    | values { $$ = create_attribute_array(F_values, $1); new_location($$, &@$); }
     ;
 
 argument: T_ARGUMENT { $$ = true; };
 
-range_attribute: T_RANGE '=' range { $$ = $3; };
+range_attribute: T_RANGE '=' range { $$ = $3; new_location($3, &@3); };
 
 range: left_open val T_ARROW val right_open
     {
-        $$ = create_range($1, false, $5, false, $2, $4);
+        $$ = create_range($1, $5, $2, $4);
     }
     | '(' T_ARROW val right_open
     {
-        $$ = create_range(true, true, $4, false, 0, $3);
+        $$ = create_range(true, $4, NULL, $3);
     }
     | left_open val T_ARROW ')'
     {
-        $$ = create_range($1, false, true, true, $2, 0);
+        $$ = create_range($1, true, $2, NULL);
     }
     | '(' T_ARROW ')'
     {
-        $$ = create_range(true, true, true, true, 0, 0);
+        $$ = create_range(true, true, NULL, NULL);
     }
     ;
 
@@ -424,20 +483,23 @@ type: T_BOOL { $$ = FT_bool; }
     | T_FLOAT { $$ = FT_float; }
     | T_STRING { $$ = FT_string; }
     | T_ENUM { $$ = FT_enum; }
-    | T_ID { $$ = FT_string; }
     ;
 
 defaultval: '=' val { $$ = $2; }
-    | '=' '[' vallist ']' { $$ = create_field_value_array($3); }
+    | '=' '[' vallist ']'
+    {
+        $$ = create_field_value_array($3);
+        new_location($$, &@2);
+    }
     | %empty { $$ = NULL; }
     ;
 
-val: T_BOOLVAL { $$ = create_field_value_bool($1); }
-    | T_UINTVAL { $$ = create_field_value_uint($1); }
-    | T_INTVAL { $$ = create_field_value_int($1); }
-    | T_FLOATVAL { $$ = create_field_value_float($1); }
-    | T_STRINGVAL { $$ = create_field_value_string($1); }
-    | T_ID { $$ = create_field_value_string($1); }
+val: T_BOOLVAL { $$ = create_field_value_bool($1); new_location($$, &@$); }
+    | T_UINTVAL { $$ = create_field_value_uint($1); new_location($$, &@$); }
+    | T_INTVAL { $$ = create_field_value_int($1); new_location($$, &@$); }
+    | T_FLOATVAL { $$ = create_field_value_float($1); new_location($$, &@$); }
+    | T_STRINGVAL { $$ = create_field_value_string($1); new_location($$, &@$); }
+    | T_ID { $$ = create_field_value_enum($1); new_location($$, &@$); }
     ;
 
 vallist: vallist ';' val

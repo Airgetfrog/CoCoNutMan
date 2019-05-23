@@ -98,6 +98,7 @@ static inline void check_c_keyword(const char *);
 "=" {return '=';}
 "." {return '.';}
 "?" {return '?';}
+";" {return ';';}
 "->" { LEX_KEYWORD(T_ARROW); }
 
 "enum"          { LEX_KEYWORD(T_ENUM);}
