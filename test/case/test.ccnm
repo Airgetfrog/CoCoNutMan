@@ -27,10 +27,6 @@ config my_globals {
         box_size package_size,
         box_size list nesting_doll_size = [large; medium; small] {
             separator = ":"
-        },
-        enum test {
-            values = {a, b, c},
-            prefix = T
         }
     }
 }
@@ -40,8 +36,7 @@ multioption {
     fields = {
         c = 0,
         d = [0],
-        nesting_doll_size = [small; large],
-        test = c
+        nesting_doll_size = [small; large]
     }
 }
 

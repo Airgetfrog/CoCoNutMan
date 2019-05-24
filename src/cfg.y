@@ -441,8 +441,6 @@ field_attribute: configfile { $$ = create_attribute_bool(F_configfile, $1); new_
     | argument { $$ = create_attribute_bool(F_argument, $1); new_location($$, &@$); }
     | separator { $$ = create_attribute_string(F_separator, $1); new_location($$, &@$); }
     | range_attribute { $$ = create_attribute_range(F_range, $1); new_location($$, &@$); }
-    | prefix { $$ = create_attribute_string(F_prefix, $1); new_location($$, &@$); }
-    | values { $$ = create_attribute_array(F_values, $1); new_location($$, &@$); }
     ;
 
 argument: T_ARGUMENT { $$ = true; };
@@ -480,7 +478,6 @@ type: T_BOOL { $$ = FT_bool; }
     | T_INT { $$ = FT_int; }
     | T_FLOAT { $$ = FT_float; }
     | T_STRING { $$ = FT_string; }
-    | T_ENUM { $$ = FT_enum; }
     ;
 
 defaultval: '=' val { $$ = $2; }

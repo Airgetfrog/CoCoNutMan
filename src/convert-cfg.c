@@ -78,22 +78,6 @@ void convert_attributes(void *node, array *attributes) {
                     field->range = attribute->value.range_value;
                 }
                 break;
-            case F_prefix:
-                field = (Field *)node;
-                if (field->type != FT_enum || field->enum_id) {
-                    print_warning(attribute, "field " BQS " has prefix but is not an enum", field->id);
-                } else {
-                    field->prefix = attribute->value.string_value;
-                }
-                break;
-            case F_values:
-                field = (Field *)node;
-                if (field->type != FT_enum || field->enum_id) {
-                    print_warning(attribute, "field " BQS " has values but is not an enum", field->id);
-                } else {
-                    field->values = attribute->value.array_value;
-                }
-                break;
         }
     }
 }

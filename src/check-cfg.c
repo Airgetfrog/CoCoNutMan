@@ -143,7 +143,8 @@ int check_value(struct Info *info, FieldValue *value, Field *field, bool is_list
     // types now guaranteed to match
 
     if (value->type == FT_enum) {
-        if (field->enum_id && !field->values) {
+        Enum *enum_struct = (Enum *)smap_retrieve(info->enum_id, field->enum_id);
+        if (!enum_struct) {
             // This is just a hint, an error will have been printed for
             //  the enum not existing.
             print_warning(value, "could not check value " BQS " of undefined enum " BQS, value->value.string_value, field->enum_id);
@@ -152,8 +153,8 @@ int check_value(struct Info *info, FieldValue *value, Field *field, bool is_list
             char *fvid = value->value.string_value;
             bool found = false;
 
-            for (size_t i = 0; i < array_size(field->values); i++) {
-                char *evid = (char *)array_get(field->values, i);
+            for (size_t i = 0; i < array_size(enum_struct->values); i++) {
+                char *evid = (char *)array_get(enum_struct->values, i);
                 if (ccn_str_equal(fvid, evid)) {
                     found = true;
                     break;
@@ -161,15 +162,9 @@ int check_value(struct Info *info, FieldValue *value, Field *field, bool is_list
             }
 
             if (!found) {
-                if (field->enum_id) {
-                    print_error(value, BQS " is not a valid value for enum " BQS, fvid, field->enum_id);
-                    print_note(smap_retrieve(info->enum_id, field->enum_id), "enum " BQS " defined here", field->enum_id);
-                    errors++;
-                } else {
-                    print_error(value, BQS " is not a valid value for enum field " BQS, fvid, field->id);
-                    print_note(field, "field " BQS " defined here", field->id);
-                    errors++;
-                }
+                print_error(value, BQS " is not a valid value for enum " BQS, fvid, field->enum_id);
+                print_note(enum_struct, "enum " BQS " defined here", field->enum_id);
+                errors++;
             }
         }
     }
@@ -211,56 +206,9 @@ int check_field(struct Info *info, Field *field) {
         smap_insert(info->options, option, field);
     }
 
-    if (field->type == FT_enum && !field->enum_id) {
-        if (!field->values) {
-            print_error(field, "attribute " BQS " missing from field " BQS " of type " BQS, Attribute_name(F_values), field->id, FieldType_name(field->type));
-            errors++;
-        }
-
-        if (!field->prefix) {
-            print_error(field, "attribute " BQS " missing from field " BQS " of type " BQS, Attribute_name(F_prefix), field->id, FieldType_name(field->type));
-            errors++;
-        }
-    }
-
     if (field->is_list && !field->separator) {
         print_error(field, "attribute " BQS " missing from field " BQS "of type " BQS, Attribute_name(F_separator), field->id, FieldType_name(FT_list));
         errors++;
-    }
-
-    if (field->values) {
-        smap_t *value_map = smap_init(32);
-        for (size_t i = 0; i < array_size(field->values); i++) {
-            char *id = array_get(field->values, i);
-            if (smap_retrieve(value_map, id)) {
-                // only an error if field is an enum
-                if (field->type == FT_enum && !field->enum_id) {
-                    print_error(id, "duplicate value " BQS, id);
-                    print_note(smap_retrieve(value_map, id), "first use of " BQS " was here", id);
-                    errors++;
-                } else {
-                    print_warning(id, "duplicate value " BQS, id);
-                    print_note(smap_retrieve(value_map, id), "first use of " BQS " was here", id);
-                }
-            }
-            smap_insert(value_map, id, id);
-        }
-        smap_free(value_map);
-    }
-
-    if (field->prefix) {
-        if (smap_retrieve(info->enum_prefix, field->prefix)) {
-            // same here
-            if (field->type == FT_enum && !field->enum_id) {
-                print_error(field->prefix, "duplicate prefix " BQS, field->prefix);
-                print_note(smap_retrieve(info->enum_prefix, field->prefix), "previous use of " BQS " was here", field->prefix);
-                errors++;
-            } else {
-                print_warning(field->prefix, "duplicate prefix " BQS, field->prefix);
-                print_note(smap_retrieve(info->enum_prefix, field->prefix), "previous use of " BQS " was here", field->prefix);
-            }
-        }
-        smap_insert(info->enum_prefix, field->prefix, field->prefix);
     }
 
     if (field->enum_id) {
@@ -268,13 +216,6 @@ int check_field(struct Info *info, Field *field) {
         if (!enum_struct) {
             print_error(field->enum_id, "enum type " BQS " is undefined", field->enum_id);
             errors++;
-        } else {
-            // a proper enum might already have a values attribute
-            if (field->values) {
-                // TODO: add free func
-                array_cleanup(field->values, NULL);
-            }
-            field->values = enum_struct->values;
         }
     }
 
@@ -283,8 +224,8 @@ int check_field(struct Info *info, Field *field) {
         errors += check_value(info, field->default_value, field, field->is_list);
     } else if (field->is_list) {
         field->default_value = create_field_value_array(create_array());
-    } else if (field->type == FT_enum && field->values) {
-        field->default_value = create_field_value_enum(array_get(field->values, 0));
+    } else if (field->type == FT_enum) {
+        field->default_value = create_field_value_enum(array_get(smap_retrieve(info->enum_id, field->enum_id), 0));
     } else {
         switch (field->type) {
             case FT_uint:

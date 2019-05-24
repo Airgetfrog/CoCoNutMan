@@ -86,8 +86,6 @@ Field *create_field(char *id, char *info, enum FieldType type, bool is_list, Fie
     node->is_argument = false;
     node->separator = NULL;
     node->range = NULL;
-    node->prefix = NULL;
-    node->values = NULL;
     node->enum_id = NULL;
     return node;
 }
@@ -106,8 +104,6 @@ Field *create_field_enum(char *id, char *info, enum FieldType type, bool is_list
     node->is_argument = false;
     node->separator = NULL;
     node->range = NULL;
-    node->prefix = NULL;
-    node->values = NULL;
     node->enum_id = enum_id;
     return node;
 }

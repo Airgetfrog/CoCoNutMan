@@ -51,9 +51,7 @@ enum Attributes {
     F_options,
     F_argument,
     F_separator,
-    F_range,
-    F_prefix,
-    F_values
+    F_range
 };
 
 typedef struct Attribute {
@@ -122,8 +120,6 @@ typedef struct Field {
     bool is_argument;
     char *separator;
     struct Range *range;
-    char *prefix;
-    array *values;
     char *enum_id;
 } Field;
 
