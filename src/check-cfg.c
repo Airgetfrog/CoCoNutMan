@@ -54,12 +54,12 @@ int check_enum(struct Info *info, Enum *enum_struct) {
     int errors = 0;
 
     if (!enum_struct->values) {
-        print_error(enum_struct, "enum %s has no values", enum_struct->id);
+        print_error(enum_struct, "attribute " BQS " missing from enum " BQS, Attribute_name(E_values), enum_struct->id);
         errors++;
     }
 
     if (!enum_struct->prefix) {
-        print_error(enum_struct, "enum %s has no prefix", enum_struct->id);
+        print_error(enum_struct, "attribute " BQS " missing from enum " BQS, Attribute_name(E_prefix), enum_struct->id);
         errors++;
     }
 
@@ -96,7 +96,7 @@ int check_enum(struct Info *info, Enum *enum_struct) {
     return errors;
 }
 
-int check_value(FieldValue *value, Field *field, bool is_list) {
+int check_value(struct Info *info, FieldValue *value, Field *field, bool is_list) {
     int errors = 0;
 
     if (is_list && value->type != FT_list) {
@@ -143,8 +143,15 @@ int check_value(FieldValue *value, Field *field, bool is_list) {
             }
 
             if (!found) {
-                print_error(value, BQS " is not a valid value for enum " BQS, fvid, field->enum_id);
-                errors++;
+                if (field->enum_id) {
+                    print_error(value, BQS " is not a valid value for enum " BQS, fvid, field->enum_id);
+                    print_note(smap_retrieve(info->enum_id, field->enum_id), "enum " BQS " defined here", field->enum_id);
+                    errors++;
+                } else {
+                    print_error(value, BQS " is not a valid value for enum field " BQS, fvid, field->id);
+                    print_note(field, "field " BQS " defined here", field->id);
+                    errors++;
+                }
             }
         }
     }
@@ -152,7 +159,7 @@ int check_value(FieldValue *value, Field *field, bool is_list) {
     if (is_list && value->type == FT_list) {
         array *arr = value->value.array_value;
         for (size_t i = 0; i < array_size(arr); i++) {
-            errors += check_value(array_get(arr, i), field, false);
+            errors += check_value(info, array_get(arr, i), field, false);
         }
     }
 
@@ -186,14 +193,19 @@ int check_field(struct Info *info, Field *field) {
 
     if (field->type == FT_enum && !field->enum_id) {
         if (!field->values) {
-            print_error(field, "enum field %s has no values", field->id);
+            print_error(field, "attribute " BQS " missing from field " BQS " of type " BQS, Attribute_name(F_values), field->id, FieldType_name(field->type));
             errors++;
         }
 
         if (!field->prefix) {
-            print_error(field, "enum field %s has no prefix", field->id);
+            print_error(field, "attribute " BQS " missing from field " BQS " of type " BQS, Attribute_name(F_prefix), field->id, FieldType_name(field->type));
             errors++;
         }
+    }
+
+    if (field->is_list && !field->separator) {
+        print_error(field, "attribute " BQS " missing from field " BQS "of type " BQS, Attribute_name(F_separator), field->id, FieldType_name(FT_list));
+        errors++;
     }
 
     if (field->values) {
@@ -230,9 +242,11 @@ int check_field(struct Info *info, Field *field) {
     }
 
     if (field->default_value) {
-        errors += check_value(field->default_value, field, field->is_list);
+        errors += check_value(info, field->default_value, field, field->is_list);
     } else if (field->is_list) {
         field->default_value = create_field_value_array(create_array());
+    } else if (field->type == FT_enum && field->values) {
+        field->default_value = create_field_value_enum(array_get(field->values, 0));
     } else {
         switch (field->type) {
             case FT_uint:
@@ -252,8 +266,8 @@ int check_field(struct Info *info, Field *field) {
     }
 
     if (field->range) {
-        errors += field->range->left_bound && check_value(field->range->left_bound, field, false);
-        errors += field->range->right_bound && check_value(field->range->right_bound, field, false);
+        errors += field->range->left_bound && check_value(info, field->range->left_bound, field, false);
+        errors += field->range->right_bound && check_value(info, field->range->right_bound, field, false);
     }
 
     return errors;
@@ -261,6 +275,11 @@ int check_field(struct Info *info, Field *field) {
 
 int check_config(struct Info *info, Config *config) {
     int errors = 0;
+
+    if (!config->fields) {
+        print_error(config, "attribute " BQS " missing from config " BQS, Attribute_name(C_fields), config->id);
+        return 1;
+    }
 
     smap_t *smap = smap_init(32);
 
@@ -321,7 +340,7 @@ int check_setter(struct Info *info, Setter *setter) {
     setter->field = field;
 
     if (setter->value) {
-        return check_value(setter->value, field, field->is_list);
+        return check_value(info, setter->value, field, field->is_list);
     }
 
     return 0;
@@ -338,6 +357,12 @@ int check_multioption(struct Info *info, MultiOption *multioption) {
             errors++;
         }
         smap_insert(info->options, option, option);
+    }
+
+    if (!multioption->fields) {
+        print_error(multioption, "attribute " BQS " missing from multioption", Attribute_name(MO_fields));
+        errors++;
+        return errors;
     }
 
     Setter *first = NULL;
@@ -386,6 +411,16 @@ int check_optionset(struct Info *info, OptionSet *optionset) {
         smap_insert(info->options, option, option);
     }
 
+    if (!optionset->tokens) {
+        print_error(optionset, "attribute " BQS " missing from optionset", Attribute_name(OS_tokens));
+        errors++;
+    }
+
+    if (errors) {
+        return errors;
+    }
+
+    bool sep_required = false;
     smap_t *smap = smap_init(32);
 
     for (size_t i = 0; i < array_size(optionset->tokens); i++) {
@@ -396,8 +431,17 @@ int check_optionset(struct Info *info, OptionSet *optionset) {
             errors++;
         }
         smap_insert(smap, token->token, token->token);
+        sep_required = sep_required || strlen(token->token) > 1;
 
         errors += check_token(info, token);
+    }
+
+    smap_free(smap);
+
+    if (sep_required && !optionset->separator) {
+        print_error(optionset, "attribute " BQS " missing in optionset with token of length greater than 1", Attribute_name(OS_separator));
+        errors++;
+        return errors;
     }
 
     for (size_t i = 0; i < strlen(optionset->separator); i++) {
