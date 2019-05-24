@@ -127,8 +127,6 @@ static inline void check_c_keyword(const char *);
 "targetoptions" { LEX_KEYWORD(T_TARGETOPTIONS); }
 "argument"      { LEX_KEYWORD(T_ARGUMENT); }
 "separator"     { LEX_KEYWORD(T_SEPARATOR); }
-"prologue"      { LEX_KEYWORD(T_PROLOGUE); }
-"epilogue"      { LEX_KEYWORD(T_EPILOGUE); }
 "list"          { LEX_KEYWORD(T_LIST); }
 
 [A-Za-z][A-Za-z0-9_]*  {

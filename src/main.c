@@ -75,7 +75,6 @@ int main(int argc, char *argv[]) {
     struct option long_options[] = {
         {"help", no_argument, 0, 'h'},
         {"version", no_argument, 0, 20},
-        {"werror", no_argument, 0, 'w'},
         {0, 0, 0, 0}};
 
     while (1) {
@@ -98,8 +97,6 @@ int main(int argc, char *argv[]) {
         case '?':
             usage(argv[0]);
             return 1;
-        case 'w':
-
         }
     }
 

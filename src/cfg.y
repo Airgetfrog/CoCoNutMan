@@ -116,8 +116,6 @@ static array *list_append(struct array *array, void *element,  struct ParserLoca
 %token T_TARGETOPTIONS "targetoptions"
 %token T_ARGUMENT "argument"
 %token T_SEPARATOR "separator"
-%token T_PROLOGUE "prologue"
-%token T_EPILOGUE "epilogue"
 %token T_LIST "list"
 
 %type<configuration> root
