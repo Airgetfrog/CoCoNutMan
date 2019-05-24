@@ -3,6 +3,8 @@ src/coconutman.lexer.c
 src/coconutman.lexer.h
 src/coconutman.parser.c
 src/coconutman.parser.h
+cfg.ccnm.h
+cfg.ccnm.c
 
 # Created by https://www.gitignore.io/api/c
 # Edit at https://www.gitignore.io/?templates=c

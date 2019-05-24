@@ -15,7 +15,7 @@ typedef struct Configuration {
     struct Config *config;
 } Configuration;
 
-enum FieldType {
+typedef enum FieldType {
     FT_uint,
     FT_int,
     FT_float,
@@ -23,7 +23,7 @@ enum FieldType {
     FT_bool,
     FT_enum,
     FT_list
-};
+} FieldType;
 
 typedef struct FieldValue {
     enum FieldType type;
@@ -37,7 +37,7 @@ typedef struct FieldValue {
     } value;
 } FieldValue;
 
-enum Attributes {
+typedef enum Attributes {
     E_prefix,
     E_values,
     MO_options,
@@ -52,7 +52,7 @@ enum Attributes {
     F_argument,
     F_separator,
     F_range
-};
+} Attributes;
 
 typedef struct Attribute {
     enum Attributes attribute;
