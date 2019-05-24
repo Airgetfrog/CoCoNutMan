@@ -1,3 +1,7 @@
+/* Handles the checking of the config.
+ *
+ */
+
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -37,6 +41,10 @@ static void free_info(struct Info *info) {
     mem_free(info);
 }
 
+/* Generates an option from an id.
+ * This (should) depend on configuration. (TODO)
+ * Used for fields without options that are not arguments.
+ */
 char *generate_option(char *id) {
     char *option = mem_alloc(sizeof(char) * strlen(id) + 3);
     memmove(option + 2, id, strlen(id) + 1);
@@ -58,6 +66,8 @@ int check_enum(struct Info *info, Enum *enum_struct) {
         errors++;
     }
 
+    // We enforce use of prefixes to avoid checking overlap between
+    //  enums with and without prefix.
     if (!enum_struct->prefix) {
         print_error(enum_struct, "attribute " BQS " missing from enum " BQS, Attribute_name(E_prefix), enum_struct->id);
         errors++;
@@ -96,6 +106,9 @@ int check_enum(struct Info *info, Enum *enum_struct) {
     return errors;
 }
 
+/* Checks a value in relation to a field.
+ * Returns in multiple places.
+ */
 int check_value(struct Info *info, FieldValue *value, Field *field, bool is_list) {
     int errors = 0;
 
@@ -127,10 +140,15 @@ int check_value(struct Info *info, FieldValue *value, Field *field, bool is_list
         return errors;
     }
 
+    // types now guaranteed to match
+
     if (value->type == FT_enum) {
         if (field->enum_id && !field->values) {
+            // This is just a hint, an error will have been printed for
+            //  the enum not existing.
             print_warning(value, "could not check value " BQS " of undefined enum " BQS, value->value.string_value, field->enum_id);
         } else {
+            // simply check if the value is valid
             char *fvid = value->value.string_value;
             bool found = false;
 
@@ -157,6 +175,7 @@ int check_value(struct Info *info, FieldValue *value, Field *field, bool is_list
     }
 
     if (is_list && value->type == FT_list) {
+        // check each element individually (lists dont recurse)
         array *arr = value->value.array_value;
         for (size_t i = 0; i < array_size(arr); i++) {
             errors += check_value(info, array_get(arr, i), field, false);
@@ -169,6 +188,7 @@ int check_value(struct Info *info, FieldValue *value, Field *field, bool is_list
 int check_field(struct Info *info, Field *field) {
     int errors = 0;
 
+    // There is no use case for this.
     if (field->is_argument && array_size(field->options)) {
         print_error(field->options, "field " BQS " has options but is an argument", field->id);
         errors++;
@@ -213,9 +233,15 @@ int check_field(struct Info *info, Field *field) {
         for (size_t i = 0; i < array_size(field->values); i++) {
             char *id = array_get(field->values, i);
             if (smap_retrieve(value_map, id)) {
-                print_error(id, "duplicate value " BQS, id);
-                print_note(smap_retrieve(value_map, id), "first use of " BQS " was here", id);
-                errors++;
+                // only an error if field is an enum
+                if (field->type == FT_enum && !field->enum_id) {
+                    print_error(id, "duplicate value " BQS, id);
+                    print_note(smap_retrieve(value_map, id), "first use of " BQS " was here", id);
+                    errors++;
+                } else {
+                    print_warning(id, "duplicate value " BQS, id);
+                    print_note(smap_retrieve(value_map, id), "first use of " BQS " was here", id);
+                }
             }
             smap_insert(value_map, id, id);
         }
@@ -224,9 +250,15 @@ int check_field(struct Info *info, Field *field) {
 
     if (field->prefix) {
         if (smap_retrieve(info->enum_prefix, field->prefix)) {
-            print_error(field->prefix, "duplicate prefix " BQS, field->prefix);
-            print_note(smap_retrieve(info->enum_prefix, field->prefix), "previous use of " BQS " was here", field->prefix);
-            errors++;
+            // same here
+            if (field->type == FT_enum && !field->enum_id) {
+                print_error(field->prefix, "duplicate prefix " BQS, field->prefix);
+                print_note(smap_retrieve(info->enum_prefix, field->prefix), "previous use of " BQS " was here", field->prefix);
+                errors++;
+            } else {
+                print_warning(field->prefix, "duplicate prefix " BQS, field->prefix);
+                print_note(smap_retrieve(info->enum_prefix, field->prefix), "previous use of " BQS " was here", field->prefix);
+            }
         }
         smap_insert(info->enum_prefix, field->prefix, field->prefix);
     }
@@ -237,10 +269,16 @@ int check_field(struct Info *info, Field *field) {
             print_error(field->enum_id, "enum type " BQS " is undefined", field->enum_id);
             errors++;
         } else {
+            // a proper enum might already have a values attribute
+            if (field->values) {
+                // TODO: add free func
+                array_cleanup(field->values, NULL);
+            }
             field->values = enum_struct->values;
         }
     }
 
+    // only now add defaults because we have enum values
     if (field->default_value) {
         errors += check_value(info, field->default_value, field, field->is_list);
     } else if (field->is_list) {
@@ -311,6 +349,7 @@ int check_config(struct Info *info, Config *config) {
 
 int check_setter(struct Info *info, Setter *setter) {
     Config *config = info->config;
+    // everything before the end should be config, last should be field
     for (size_t i = 0; i < array_size(setter->ids) - 1; i++) {
         char *id = (char *)array_get(setter->ids, i);
         Field *field = (Field *)smap_retrieve(config->smap, id);
@@ -480,8 +519,10 @@ int check_configuration(Configuration *configuration) {
         errors += check_enum(info, array_get(configuration->enums, i));
     }
 
-    info->config = configuration->config;
-    errors += check_config(info, configuration->config);
+    if (configuration->config) {
+        info->config = configuration->config;
+        errors += check_config(info, configuration->config);
+    }
 
     for (size_t i = 0; i < array_size(configuration->multioptions); i++) {
         errors += check_multioption(info, array_get(configuration->multioptions, i));
@@ -491,7 +532,9 @@ int check_configuration(Configuration *configuration) {
         errors += check_optionset(info, array_get(configuration->optionsets, i));
     }
 
-    errors += check_targetoptions(info, configuration->targetoptions);
+    if (array_size(configuration->targetoptions)) {
+        errors += check_targetoptions(info, configuration->targetoptions);
+    }
 
     free_info(info);
 

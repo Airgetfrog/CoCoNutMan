@@ -1,3 +1,11 @@
+/* Does the converting of attribute list to actual struct fields.
+ * Does not output errors unless warnings are errors.
+ * Also does propagation of configfile bool, as there is no way to check
+ *  whether the attribute is user-defined or not from the struct.
+ * Warnings occur when an attribute is duplicate (final instance used) or
+ *  when a field has an attribute not of its type.
+ */
+
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -101,8 +109,7 @@ int check_attributes(array *attributes) {
         if (smap_retrieve(attr_map, aname)) {
             print_warning(attribute, "duplicate attribute " BQS, aname);
             print_note(smap_retrieve(attr_map, aname), "previous use of " BQS " was here", aname);
-            print_note_no_loc("final instance of duplicate attribute used");
-            errors++;
+            print_note_no_loc("final instance of duplicate attribute used\n");
         }
         smap_insert(attr_map, aname, attribute);
     }
@@ -168,7 +175,9 @@ int check_and_convert_attributes(Configuration *configuration) {
         errors += local_errors;
     }
 
-    errors += check_and_convert_config(configuration->config, false);
+    if (configuration->config) {
+        errors += check_and_convert_config(configuration->config, false);
+    }
 
     return errors;
 }

@@ -184,8 +184,10 @@ void print_configuration(Configuration *configuration) {
         print_enum(array_get(configuration->enums, i));
     }
 
-    print_config(configuration->config, 0);
-    printf("\n\n");
+    if (configuration->config) {
+        print_config(configuration->config, 0);
+        printf("\n\n");
+    }
 
     for (int i = 0; i < array_size(configuration->multioptions); i++) {
         print_multioption(array_get(configuration->multioptions, i));
@@ -195,5 +197,7 @@ void print_configuration(Configuration *configuration) {
         print_optionset(array_get(configuration->optionsets, i));
     }
 
-    print_targetoptions(configuration->targetoptions);
+    if (array_size(configuration->targetoptions)) {
+        print_targetoptions(configuration->targetoptions);
+    }
 }

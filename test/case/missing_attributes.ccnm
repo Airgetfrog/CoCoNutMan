@@ -1,0 +1,20 @@
+enum missing_prefix {
+    values = {missing, attribute}
+}
+
+enum missing_values {
+    prefix = MV
+}
+
+multioption {
+    options = --missing-fields
+}
+
+optionset {
+    options = --missing-tokens,
+    separator = ":"
+}
+
+config missing_fields {
+    configfile = true
+}

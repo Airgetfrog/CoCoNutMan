@@ -75,6 +75,7 @@ int main(int argc, char *argv[]) {
     struct option long_options[] = {
         {"help", no_argument, 0, 'h'},
         {"version", no_argument, 0, 20},
+        {"werror", no_argument, 0, 'w'},
         {0, 0, 0, 0}};
 
     while (1) {
@@ -97,6 +98,8 @@ int main(int argc, char *argv[]) {
         case '?':
             usage(argv[0]);
             return 1;
+        case 'w':
+
         }
     }
 
@@ -116,18 +119,14 @@ int main(int argc, char *argv[]) {
 
     fclose(f);
 
-    if (check_and_convert_attributes(parse_result)) {
+    int errors = 0;
+    // has no errors unless -Werror is on, nothing depends on this
+    errors += check_and_convert_attributes(parse_result);
+    // this can actually error
+    errors += check_configuration(parse_result);
+    if (errors) {
         exit_compile_error();
     }
-
-    if (check_configuration(parse_result)) {
-        exit_compile_error();
-    }
-
-    // // Sort to prevent changes in order of attributes trigger regeneration of
-    // // code.
-    // sort_config(parse_result);
-    // hash_config(parse_result);
 
     if (verbose_flag) {
         print_configuration(parse_result);

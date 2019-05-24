@@ -1,0 +1,5 @@
+enum some_enum {
+    prefix = SE,
+    prefix = SE,
+    values = {value_a, value_b}
+}
