@@ -23,7 +23,9 @@ extern Configuration *parse(FILE *fp);
 extern char *yy_filename;
 
 static void version(void) {
-    printf("coconutman 0.1\nCoCoNut Configuration Manager\n");
+    printf("CoCoNutMan 1.11\n"
+           "CoCoNut Configuration Manager\n"
+    );
 }
 
 static FILE *open_input_file(char *path) {
@@ -63,7 +65,7 @@ int main(int argc, char *argv[]) {
     FILE *fp;
     int ret = 0;
 
-    if (ccnm_parse(argc, argv, NULL)) {
+    if (ccnm_parse(argc, argv)) {
         return 1;
     }
 
@@ -116,19 +118,23 @@ int main(int argc, char *argv[]) {
         print_configuration(configuration);
     }
 
-    fp = fopen(globals.headerfile, "w");
-    if (!fp) {
-        perror("Opening file failed");
-        exit(CANNOT_OPEN_FILE);
+    if (!globals.dry_run) {
+        fp = fopen(globals.headerfile, "w");
+        if (!fp) {
+            perror("Opening file failed");
+            exit(CANNOT_OPEN_FILE);
+        }
+        generate_header(configuration, fp);
     }
-    generate_header(configuration, fp);
 
-    fp = fopen(globals.outfile, "w");
-    if (!fp) {
-        perror("Opening file failed");
-        exit(CANNOT_OPEN_FILE);
+    if (!globals.dry_run) {
+        fp = fopen(globals.outfile, "w");
+        if (!fp) {
+            perror("Opening file failed");
+            exit(CANNOT_OPEN_FILE);
+        }
+        generate_parser(configuration, fp);
     }
-    generate_parser(configuration, fp);
 
     // free_configuration(configuration);
 

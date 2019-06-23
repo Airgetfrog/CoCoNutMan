@@ -29,6 +29,7 @@ struct globals {
     char *outfile;
     char *headerfile;
     bool verbose_flag;
+    bool dry_run;
     bool help_flag;
     bool version;
     bool posixly_correct;
@@ -37,9 +38,10 @@ struct globals {
     CFG_auto_case_mode auto_case;
     CFG_argument_parse_mode parse_mode;
     bool gnu_autoformat;
+    bool generate_configfile;
 } globals;
 
-CCNM_RESULT ccnm_parse(int argc, char *argv[], FILE *fp);
+CCNM_RESULT ccnm_parse(int argc, char *argv[]);
 void ccnm_print_usage(void);
 void ccnm_free(void);
 

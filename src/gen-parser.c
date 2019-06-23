@@ -10,6 +10,8 @@
 #include "lib/array.h"
 #include "lib/str.h"
 
+#include "cfg.ccnm.h"
+
 #define out(...) fprintf(fp, __VA_ARGS__)
 #define IND "    "
 #define IND2 IND IND
@@ -20,30 +22,6 @@
 #define NL "\n"
 
 static const char *long_static_literal =
-    "struct file_opt {" NL
-    IND "char *str;" NL
-    IND "uint8_t type;" NL
-    IND "void *loc;" NL
-    IND "bool list;" NL
-    IND "array **arr;" NL
-    IND "bool vl;" NL
-    IND "bool lo;" NL
-    IND "bool vr;" NL
-    IND "bool ro;" NL
-    IND "union {" NL
-    IND2 "unsigned int ui;" NL
-    IND2 "int i;" NL
-    IND2 "double d;" NL
-    IND "} l;" NL
-    IND "union {" NL
-    IND2 "unsigned int ui;" NL
-    IND2 "int i;" NL
-    IND2 "double d;" NL
-    IND "} r;" NL
-    IND "const char **enum_args;" NL
-    IND "size_t enum_size;" NL
-    "};" NL
-    NL
     "int parse_uint_helper(void *dest, array **arr, char *sep, char *string, char *source, const char *name, int argind, bool vl, bool lo, unsigned int l, bool vr, bool ro, unsigned int r) {" NL
     IND "if (sep) {" NL
     IND2 "int errors = 0;" NL
@@ -193,6 +171,63 @@ static const char *long_static_literal =
     IND "return 1;" NL
     "}" NL
     NL
+    "unsigned int *new_uint(unsigned int val) {" NL
+    IND "unsigned int *ui = malloc(sizeof(unsigned int));" NL
+    IND "*ui = val;" NL
+    IND "return ui;" NL
+    "}" NL
+    NL
+    "int *new_int(int val) {" NL
+    IND "int *i = malloc(sizeof(int));" NL
+    IND "*i = val;" NL
+    IND "return i;" NL
+    "}" NL
+    NL
+    "double *new_float(double val) {" NL
+    IND "double *d = malloc(sizeof(double));" NL
+    IND "*d = val;" NL
+    IND "return d;" NL
+    "}" NL
+    NL
+    "char **new_string(char *val) {" NL
+    IND "char **s = malloc(sizeof(char *));" NL
+    IND "*s = val;" NL
+    IND "return s;" NL
+    "}" NL
+    NL
+    "bool *new_bool(bool val) {" NL
+    IND "bool *b = malloc(sizeof(bool));" NL
+    IND "*b = val;" NL
+    IND "return b;" NL
+    "}" NL
+    NL
+    ;
+
+static const char *long_configfile_literal =
+    "struct file_opt {" NL
+    IND "char *str;" NL
+    IND "uint8_t type;" NL
+    IND "void *loc;" NL
+    IND "bool list;" NL
+    IND "array **arr;" NL
+    IND "bool vl;" NL
+    IND "bool lo;" NL
+    IND "bool vr;" NL
+    IND "bool ro;" NL
+    IND "union {" NL
+    IND2 "unsigned int ui;" NL
+    IND2 "int i;" NL
+    IND2 "double d;" NL
+    IND "} l;" NL
+    IND "union {" NL
+    IND2 "unsigned int ui;" NL
+    IND2 "int i;" NL
+    IND2 "double d;" NL
+    IND "} r;" NL
+    IND "const char **enum_args;" NL
+    IND "size_t enum_size;" NL
+    "};" NL
+    NL
     "int parse_quoted_string_helper(struct file_opt *fopt, char *tok, char *line, const char *name) {" NL
     IND "if (tok[0] != '\"') {" NL
     IND2 "printf(\"Invalid value %s for setting %s.\\n\", tok, name);" NL
@@ -242,36 +277,6 @@ static const char *long_static_literal =
     IND2 "return 1;" NL
     IND "}" NL
     IND "return 0;" NL
-    "}" NL
-    NL
-    "unsigned int *new_uint(unsigned int val) {" NL
-    IND "unsigned int *ui = malloc(sizeof(unsigned int));" NL
-    IND "*ui = val;" NL
-    IND "return ui;" NL
-    "}" NL
-    NL
-    "int *new_int(int val) {" NL
-    IND "int *i = malloc(sizeof(int));" NL
-    IND "*i = val;" NL
-    IND "return i;" NL
-    "}" NL
-    NL
-    "double *new_float(double val) {" NL
-    IND "double *d = malloc(sizeof(double));" NL
-    IND "*d = val;" NL
-    IND "return d;" NL
-    "}" NL
-    NL
-    "char **new_string(char *val) {" NL
-    IND "char **s = malloc(sizeof(char *));" NL
-    IND "*s = val;" NL
-    IND "return s;" NL
-    "}" NL
-    NL
-    "bool *new_bool(bool val) {" NL
-    IND "bool *b = malloc(sizeof(bool));" NL
-    IND "*b = val;" NL
-    IND "return b;" NL
     "}" NL
     NL
     "struct setting {" NL
@@ -362,7 +367,8 @@ static const char *long_static_literal =
     IND "array_cleanup(((struct target *)t)->settings, &free_setting);" NL
     IND "free(t);" NL
     "}" NL
-    NL;
+    NL
+    ;
 
 void generate_includes(FILE *fp) {
     out("#include <stdlib.h>" NL
@@ -425,6 +431,9 @@ void generate_internal_arrays_struct_helper(Configuration *configuration, FILE *
 
 void generate_static_helpers(FILE *fp) {
     out("%s", long_static_literal);
+    if (globals.generate_configfile) {
+        out("%s", long_configfile_literal);
+    }
 }
 
 void generate_field_value(FieldValue *value, FILE *fp) {
@@ -1214,7 +1223,9 @@ void generate_parse_command_line(Configuration *configuration, FILE *fp) {
     char *short_opts = generate_long_options(configuration->config, fp, &count);
     short_opts = ccn_str_cat(short_opts, generate_long_options_mo(configuration->multioptions, fp, &count));
     short_opts = ccn_str_cat(short_opts, generate_long_options_os(configuration->optionsets, fp, &count));
-    short_opts = ccn_str_cat(short_opts, generate_long_options_to(configuration->targetoptions, fp, &count));
+    if (globals.generate_configfile) {
+        short_opts = ccn_str_cat(short_opts, generate_long_options_to(configuration->targetoptions, fp, &count));
+    }
 
     out(IND IND IND "{0, 0, 0, 0}\n"
         IND IND "};\n\n"
@@ -1239,7 +1250,9 @@ void generate_parse_command_line(Configuration *configuration, FILE *fp) {
     generate_getopt_cases(configuration->config, fp, &count, "");
     generate_getopt_cases_mo(configuration->multioptions, fp, &count, configuration->config->id);
     generate_getopt_cases_os(configuration->optionsets, fp, &count, configuration->config->id);
-    generate_getopt_cases_to(configuration->targetoptions, fp, &count);
+    if (globals.generate_configfile) {
+        generate_getopt_cases_to(configuration->targetoptions, fp, &count);
+    }
 
     out(IND IND "}\n"
         IND "}\n"
@@ -1322,24 +1335,34 @@ void generate_internal_array_frees(Config *config, FILE *fp, char *prefix) {
 }
 
 void generate_cleanup_function(Configuration *configuration, FILE *fp) {
-    out("void cleanup(void) {" NL
-        IND "smap_free_values(target_map, &free_target);" NL
-        IND "smap_free(target_map);" NL
-    );
+    out("void cleanup(void) {" NL);
+    if (globals.generate_configfile) {
+        out(IND "smap_free_values(target_map, &free_target);" NL
+            IND "smap_free(target_map);" NL
+        );
+    }
     generate_internal_array_frees(configuration->config, fp, "");
     out("}" NL NL);
 }
 
 void generate_parse_function(FILE *fp) {
-    out("CCNM_RESULT ccnm_parse(int argc, char *argv[], FILE *fp) {\n"
-        IND "initialize_defaults();\n"
+    if (globals.generate_configfile) {
+        out("CCNM_RESULT ccnm_parse(int argc, char *argv[], FILE *fp) {\n");
+    } else {
+        out("CCNM_RESULT ccnm_parse(int argc, char *argv[]) {\n");
+    }
+    out(IND "initialize_defaults();\n"
         IND "initialize_arrays();\n"
-        IND "target_map = smap_init(32);\n"
-        IND "if (fp && parse_configuration_file(fp)) {\n"
-        IND IND "cleanup();\n"
-        IND IND "return CCNM_FILE_ERROR;\n"
-        IND "}\n"
-        IND "if (parse_command_line(argc, argv)) {\n"
+    );
+    if (globals.generate_configfile) {
+        out(IND "target_map = smap_init(32);\n"
+            IND "if (fp && parse_configuration_file(fp)) {\n"
+            IND IND "cleanup();\n"
+            IND IND "return CCNM_FILE_ERROR;\n"
+            IND "}\n"
+        );
+    }
+    out(IND "if (parse_command_line(argc, argv)) {\n"
         IND IND "cleanup();\n"
         IND IND "return CCNM_CLI_ERROR;\n"
         IND "}\n"
@@ -1374,10 +1397,10 @@ void generate_frees(Config *config, FILE *fp, char *prefix) {
 void generate_free_function(Configuration *configuration, FILE *fp) {
     out("void ccnm_free(void) {\n");
     generate_frees(configuration->config, fp, "");
-    out("}\n");
+    out("}\n\n");
 }
 
-void generate_option_print(array *options, FILE *fp, char *info) {
+void generate_option_print(array *options, FILE *fp, char *info, array *disable) {
     // option format = 4/24/4/48 whitespace/name/whitespace/info
     char *optionstring = "";
 
@@ -1385,15 +1408,33 @@ void generate_option_print(array *options, FILE *fp, char *info) {
         return;
     }
 
+    bool first = true;
+
     for (size_t i = 0; i < array_size(options); i++) {
         char *option = (char *)array_get(options, i);
-        if (i) {
+        if (!first) {
             optionstring = ccn_str_cat(optionstring, " ");
         }
         if (strlen(option) == 1) {
             optionstring = ccn_str_cat(ccn_str_cat(optionstring, "-"), option);
         } else {
             optionstring = ccn_str_cat(ccn_str_cat(optionstring, "--"), option);
+        }
+        first = false;
+    }
+
+    if (disable) {
+        for (size_t i = 0; i < array_size(disable); i++) {
+            char *option = (char *)array_get(disable, i);
+            if (!first) {
+                optionstring = ccn_str_cat(optionstring, " ");
+            }
+            if (strlen(option) == 1) {
+                optionstring = ccn_str_cat(ccn_str_cat(optionstring, "-"), option);
+            } else {
+                optionstring = ccn_str_cat(ccn_str_cat(optionstring, "--"), option);
+            }
+            first = false;
         }
     }
 
@@ -1461,19 +1502,21 @@ void generate_main_options_print(Config *config, FILE *fp, Configuration *config
         if (field->is_argument) {
             continue;
         }
-        generate_option_print(field->options, fp, field->info);
+        generate_option_print(field->options, fp, field->info, field->disable_options);
     }
 
     if (configuration) {
         for (size_t i = 0; i < array_size(configuration->multioptions); i++) {
             MultiOption *multioption = (MultiOption *)array_get(configuration->multioptions, i);
-            generate_option_print(multioption->options, fp, multioption->info);
+            generate_option_print(multioption->options, fp, multioption->info, NULL);
         }
         for (size_t i = 0; i < array_size(configuration->optionsets); i++) {
             OptionSet *optionset = (OptionSet *)array_get(configuration->optionsets, i);
-            generate_option_print(optionset->options, fp, optionset->info);
+            generate_option_print(optionset->options, fp, optionset->info, NULL);
         }
-        generate_option_print(configuration->targetoptions, fp, "Apply target defined in configuration file");
+        if (globals.generate_configfile) {
+            generate_option_print(configuration->targetoptions, fp, "Apply target defined in configuration file", NULL);
+        }
     }
 
     for (size_t i = 0; i < array_size(config->fields); i++) {
@@ -1501,7 +1544,9 @@ void generate_parser(Configuration *configuration, FILE *fp) {
     generate_static_helpers(fp);
     generate_initialize_defaults(configuration, fp);
     generate_initialize_arrays(configuration, fp);
-    generate_parse_configuration_file(configuration, fp);
+    if (globals.generate_configfile) {
+        generate_parse_configuration_file(configuration, fp);
+    }
     generate_parse_command_line(configuration, fp);
     generate_mallocs_helper(configuration, fp);
     generate_cleanup_function(configuration, fp);

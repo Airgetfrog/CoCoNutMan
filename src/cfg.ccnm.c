@@ -19,30 +19,6 @@ static struct {
     } globals;
 } internal_arrays;
 
-struct file_opt {
-    char *str;
-    uint8_t type;
-    void *loc;
-    bool list;
-    array **arr;
-    bool vl;
-    bool lo;
-    bool vr;
-    bool ro;
-    union {
-        unsigned int ui;
-        int i;
-        double d;
-    } l;
-    union {
-        unsigned int ui;
-        int i;
-        double d;
-    } r;
-    const char **enum_args;
-    size_t enum_size;
-};
-
 int parse_uint_helper(void *dest, array **arr, char *sep, char *string, char *source, const char *name, int argind, bool vl, bool lo, unsigned int l, bool vr, bool ro, unsigned int r) {
     if (sep) {
         int errors = 0;
@@ -192,57 +168,6 @@ int parse_enum_helper(void *dest, array **arr, char *sep, char *string, char *so
     return 1;
 }
 
-int parse_quoted_string_helper(struct file_opt *fopt, char *tok, char *line, const char *name) {
-    if (tok[0] != '"') {
-        printf("Invalid value %s for setting %s.\n", tok, name);
-        return 1;
-    }
-    bool escaped = false;
-    char *rest = strtok(NULL, "");
-    if (rest) {
-        line = ccn_str_cat(tok, rest);
-    } else {
-        line = strdup(tok);
-    }
-    char *dup = malloc(strlen(line) * sizeof(char));
-    size_t put = 0;
-    for (size_t i = 1; i < strlen(line); i++) {
-        if (escaped) {
-            dup[put++] = line[i];
-            escaped = false;
-            continue;
-        }
-        if (line[i] == '\\') {
-            escaped = true;
-            continue;
-        }
-        if (line[i] == '"') {
-            dup[put] = '\0';
-            parse_string_helper(fopt->loc, fopt->arr, NULL, dup);
-            free(dup);
-            free(line);
-            return 0;
-        }
-        dup[put++] = line[i];
-    }
-    printf("Invalid value %s for setting %s.\n", tok, name);
-    free(dup);
-    free(line);
-    return 1;
-}
-
-int parse_bool_string_helper(struct file_opt *fopt, char *tok, const char *name) {
-    if (ccn_str_equal(tok, "true")) {
-        parse_bool_helper(fopt->loc, fopt->arr, true);
-    } else if (ccn_str_equal(tok, "false")) {
-        parse_bool_helper(fopt->loc, fopt->arr, false);
-    } else {
-        printf("Invalid value %s for setting %s.\n", tok, name);
-        return 1;
-    }
-    return 0;
-}
-
 unsigned int *new_uint(unsigned int val) {
     unsigned int *ui = malloc(sizeof(unsigned int));
     *ui = val;
@@ -273,99 +198,11 @@ bool *new_bool(bool val) {
     return b;
 }
 
-struct setting {
-    struct file_opt *fopt;
-    char *tok;
-    char *name;
-    char *line;
-};
-
-struct setting *make_setting(struct file_opt *fopt, char *tok, char *name, char *line) {
-    struct setting *s = malloc(sizeof(struct setting));
-    s->fopt = fopt;
-    s->tok = tok;
-    s->name = name;
-    s->line = line;
-    return s;
-}
-
-void free_setting(void *v) {
-    struct setting *s = (struct setting *)v;
-    free(s->tok);
-    free(s->name);
-    free(s->line);
-    free(s);
-}
-
-struct target {
-    array *settings;
-    struct target *parent;
-};
-
-struct target *make_target(struct target *parent) {
-    struct target *t = malloc(sizeof(struct target));
-    t->settings = create_array();
-    t->parent = parent;
-    return t;
-}
-
-static smap_t *target_map;
-
-int apply_target(struct target *t) {
-    int errors = 0;
-    if (t->parent) {
-        errors += apply_target(t->parent);
-    }
-    for (size_t i = 0; i < array_size(t->settings); i++) {
-        struct setting *s = array_get(t->settings, i);
-        struct file_opt *option = s->fopt;
-        char *tok = s->tok;
-        char *name = s->name;
-        char *line = s->line;
-        switch (option->type) {
-            case 0:
-                errors += parse_uint_helper(option->loc, option->arr, NULL, tok, "setting", name, 0, option->vl, option->lo, option->l.ui, option->vr, option->ro, option->r.ui);
-                break;
-            case 1:
-                errors += parse_int_helper(option->loc, option->arr, NULL, tok, "setting", name, 0, option->vl, option->lo, option->l.i, option->vr, option->ro, option->r.i);
-                break;
-            case 2:
-                errors += parse_int_helper(option->loc, option->arr, NULL, tok, "setting", name, 0, option->vl, option->lo, option->l.d, option->vr, option->ro, option->r.d);
-                break;
-            case 3:
-                errors += parse_quoted_string_helper(option, tok, line, name);
-                break;
-            case 4:
-                errors += parse_bool_string_helper(option, tok, name);
-                break;
-            case 5:
-                errors += parse_enum_helper(option->loc, option->arr, NULL, tok, "setting", name, 0, option->enum_args, option->enum_size);
-                break;
-        }
-    }
-    return errors;
-}
-
-int parse_target(char *string) {
-    int errors = 0;
-    struct target *t;
-    if (!(t = smap_retrieve(target_map, string))) {
-        printf("Target %s not found.\n", string);
-        return 1;
-    }
-    errors += apply_target(t);
-    return errors;
-}
-
-void free_target(void *t) {
-    array_cleanup(((struct target *)t)->settings, &free_setting);
-    free(t);
-}
-
 void initialize_defaults(void) {
     globals.outfile = strdup("cfg.ccnm.c");
     globals.headerfile = strdup("cfg.ccnm.h");
     globals.verbose_flag = false;
+    globals.dry_run = false;
     globals.help_flag = false;
     globals.version = false;
     globals.posixly_correct = false;
@@ -374,116 +211,10 @@ void initialize_defaults(void) {
     globals.auto_case = ACM_kebab;
     globals.parse_mode = APM_GNU;
     globals.gnu_autoformat = true;
+    globals.generate_configfile = true;
 }
 
 void initialize_arrays(void) {
-}
-
-int parse_configuration_file(FILE *fp) {
-    int errors = 0;
-    static struct file_opt options[] =
-        {
-            {"infile", 3, &globals.infile, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-            {"outfile", 3, &globals.outfile, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-            {"headerfile", 3, &globals.headerfile, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-            {"verbose_flag", 4, &globals.verbose_flag, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-            {"help_flag", 4, &globals.help_flag, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-            {"version", 4, &globals.version, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-            {"posixly_correct", 4, &globals.posixly_correct, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-            {"auto_disable_prefix", 3, &globals.auto_disable_prefix, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-            {"auto_prefix", 3, &globals.auto_prefix, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-            {"auto_case", 5, &globals.auto_case, 0, 0, 0, 0, 0, 0, 0, 0, auto_case_mode_args, 3},
-            {"parse_mode", 5, &globals.parse_mode, 0, 0, 0, 0, 0, 0, 0, 0, argument_parse_mode_args, 4},
-            {"gnu_autoformat", 4, &globals.gnu_autoformat, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-        };
-    char *line = NULL;
-    size_t len = 0;
-    char *tok;
-    size_t i;
-    size_t linenr = 0;
-    char *name;
-    struct target *current_target = NULL;
-    char *current_target_name = NULL;
-    while (getline(&line, &len, fp) != -1) {
-        if ((name = tok = strtok(line, " \t\n"))) {
-            if (ccn_str_equal(tok, "//")) {
-                continue;
-            }
-            if (ccn_str_equal(tok, "target")) {
-                if (!(current_target_name = tok = strtok(NULL, " \t\n"))) {
-                    printf("Unexpected end of line on line %zu.\n", linenr);
-                    continue;
-                }
-                if (!(tok = strtok(NULL, " \t\n"))) {
-                    current_target = make_target(NULL); smap_insert(target_map, current_target_name, current_target);
-                    continue;
-                }
-                if (!ccn_str_equal(tok, "extends")) {
-                    printf("Unrecognized sequence on line %zu.\n", linenr);
-                    continue;
-                }
-                if (!(tok = strtok(NULL, " \t\n"))) {
-                    printf("Unexpected end of line on line %zu.\n", linenr);
-                    continue;
-                }
-                if (!smap_retrieve(target_map, tok)) {
-                    printf("Target %s not found\n", tok);
-                    continue;
-                }
-                current_target = make_target(smap_retrieve(target_map, tok));
-                smap_insert(target_map, current_target_name, current_target);
-                continue;
-            }
-            for (i = 0; i < 12; i++) {
-                if (ccn_str_equal(tok, options[i].str)) {
-                    break;
-                }
-            }
-            if (i >= 12) {
-                printf("Unrecognized option %s on line %zu.\n", tok, linenr);
-                continue;
-            }
-            if (!(tok = strtok(NULL, " \t\n"))) {
-                printf("Unexpected end of line on line %zu.\n", linenr);
-                continue;
-            }
-            if ((!options[i].list && !ccn_str_equal(tok, "=")) || (options[i].list && !ccn_str_equal(tok, "+="))) {
-                printf("Unrecognized sequence on line %zu.\n", linenr);
-                continue;
-            }
-            if (!(tok = strtok(NULL, " \t\n"))) {
-                printf("Unexpected end of line on line %zu.\n", linenr);
-                continue;
-            }
-            if (current_target) {
-                array_append(current_target->settings, make_setting(&options[i], strdup(tok), strdup(name), strdup(line)));
-                continue;
-            }
-            switch (options[i].type) {
-                case 0:
-                    errors += parse_uint_helper(options[i].loc, options[i].arr, NULL, tok, "setting", name, 0, options[i].vl, options[i].lo, options[i].l.ui, options[i].vr, options[i].ro, options[i].r.ui);
-                    break;
-                case 1:
-                    errors += parse_int_helper(options[i].loc, options[i].arr, NULL, tok, "setting", name, 0, options[i].vl, options[i].lo, options[i].l.i, options[i].vr, options[i].ro, options[i].r.i);
-                    break;
-                case 2:
-                    errors += parse_int_helper(options[i].loc, options[i].arr, NULL, tok, "setting", name, 0, options[i].vl, options[i].lo, options[i].l.d, options[i].vr, options[i].ro, options[i].r.d);
-                    break;
-                case 3:
-                    errors += parse_quoted_string_helper(&options[i], tok, line, name);
-                    break;
-                case 4:
-                    errors += parse_bool_string_helper(&options[i], tok, name);
-                    break;
-                case 5:
-                    errors += parse_enum_helper(options[i].loc, options[i].arr, NULL, tok, "setting", name, 0, options[i].enum_args, options[i].enum_size);
-                    break;
-            }
-        }
-        linenr++;
-    }
-    free(line);
-    return errors;
 }
 
 int parse_command_line(int argc, char *argv[]) {
@@ -493,18 +224,22 @@ int parse_command_line(int argc, char *argv[]) {
             {"outfile", required_argument, 0, 256},
             {"headerfile", required_argument, 0, 257},
             {"verbose", no_argument, 0, 258},
-            {"help", no_argument, 0, 259},
-            {"print-help", no_argument, 0, 259},
-            {"this-is-a-very-long-option-wow", no_argument, 0, 259},
-            {"version", no_argument, 0, 260},
-            {"posixly-correct", no_argument, 0, 261},
-            {"no-posixly-correct", no_argument, 0, 262},
-            {"auto-disable-prefix", required_argument, 0, 263},
-            {"auto-prefix", required_argument, 0, 264},
-            {"auto-case", required_argument, 0, 265},
-            {"parse-mode", required_argument, 0, 266},
-            {"gnu-autoformat", no_argument, 0, 267},
-            {"no-gnu-autoformat", no_argument, 0, 268},
+            {"dry", no_argument, 0, 259},
+            {"dry-run", no_argument, 0, 259},
+            {"no-dry-run", no_argument, 0, 260},
+            {"help", no_argument, 0, 261},
+            {"print-help", no_argument, 0, 261},
+            {"version", no_argument, 0, 262},
+            {"posixly-correct", no_argument, 0, 263},
+            {"no-posixly-correct", no_argument, 0, 264},
+            {"auto-disable-prefix", required_argument, 0, 265},
+            {"auto-prefix", required_argument, 0, 266},
+            {"auto-case", required_argument, 0, 267},
+            {"parse-mode", required_argument, 0, 268},
+            {"gnu-autoformat", no_argument, 0, 269},
+            {"no-gnu-autoformat", no_argument, 0, 270},
+            {"generate-configfile", no_argument, 0, 271},
+            {"no-generate-configfile", no_argument, 0, 272},
             {0, 0, 0, 0}
         };
 
@@ -514,7 +249,7 @@ int parse_command_line(int argc, char *argv[]) {
     unsigned long ul;
     array *strings;
     while (true) {
-        c = getopt_long(argc, argv, "vh", long_options, &long_index);
+        c = getopt_long(argc, argv, "vdh", long_options, &long_index);
         if (c == -1) {
             break;
         }
@@ -535,38 +270,53 @@ int parse_command_line(int argc, char *argv[]) {
             case 258:
                 errors += parse_bool_helper(&globals.verbose_flag, 0, true);
                 break;
+            case 'd':
+                errors += parse_bool_helper(&globals.dry_run, 0, true);
+                break;
+            case 259:
+                errors += parse_bool_helper(&globals.dry_run, 0, true);
+                break;
+            case 260:
+                errors += parse_bool_helper(&globals.dry_run, 0, false);
+                break;
             case 'h':
                 errors += parse_bool_helper(&globals.help_flag, 0, true);
                 break;
-            case 259:
+            case 261:
                 errors += parse_bool_helper(&globals.help_flag, 0, true);
                 break;
-            case 260:
+            case 262:
                 errors += parse_bool_helper(&globals.version, 0, true);
                 break;
-            case 261:
+            case 263:
                 errors += parse_bool_helper(&globals.posixly_correct, 0, true);
                 break;
-            case 262:
+            case 264:
                 errors += parse_bool_helper(&globals.posixly_correct, 0, false);
                 break;
-            case 263:
+            case 265:
                 errors += parse_string_helper(&globals.auto_disable_prefix, 0, 0, optarg);
                 break;
-            case 264:
+            case 266:
                 errors += parse_string_helper(&globals.auto_prefix, 0, 0, optarg);
                 break;
-            case 265:
+            case 267:
                 errors += parse_enum_helper(&globals.auto_case, 0, 0, optarg, "option", long_options[long_index].name, 0, auto_case_mode_args, 3);
                 break;
-            case 266:
+            case 268:
                 errors += parse_enum_helper(&globals.parse_mode, 0, 0, optarg, "option", long_options[long_index].name, 0, argument_parse_mode_args, 4);
                 break;
-            case 267:
+            case 269:
                 errors += parse_bool_helper(&globals.gnu_autoformat, 0, true);
                 break;
-            case 268:
+            case 270:
                 errors += parse_bool_helper(&globals.gnu_autoformat, 0, false);
+                break;
+            case 271:
+                errors += parse_bool_helper(&globals.generate_configfile, 0, true);
+                break;
+            case 272:
+                errors += parse_bool_helper(&globals.generate_configfile, 0, false);
                 break;
         }
     }
@@ -584,18 +334,11 @@ void malloc_arrays(void) {
 }
 
 void cleanup(void) {
-    smap_free_values(target_map, &free_target);
-    smap_free(target_map);
 }
 
-CCNM_RESULT ccnm_parse(int argc, char *argv[], FILE *fp) {
+CCNM_RESULT ccnm_parse(int argc, char *argv[]) {
     initialize_defaults();
     initialize_arrays();
-    target_map = smap_init(32);
-    if (fp && parse_configuration_file(fp)) {
-        cleanup();
-        return CCNM_FILE_ERROR;
-    }
     if (parse_command_line(argc, argv)) {
         cleanup();
         return CCNM_CLI_ERROR;
@@ -612,32 +355,40 @@ void ccnm_free(void) {
     free(globals.auto_disable_prefix);
     free(globals.auto_prefix);
 }
+
 void ccnm_print_usage(void) {
     printf("OPTIONS:\n"
            "\n"
-           "    --outfile\n"
+           "    --outfile                   Location for output .c file\n"
            "\n"
-           "    --headerfile\n"
+           "    --headerfile                Location for output .h file\n"
            "\n"
-           "    -v --verbose                print configuration tree\n"
+           "    -v --verbose                Print configuration tree before outputting files\n"
            "\n"
-           "    -h --help --print-help -    print this message very long message wow such he\n"
-           "    -this-is-a-very-long-opt    lp very usage wow wow\n"
-           "    ion-wow\n"
+           "    -d --dry --dry-run --no-    Do not output files\n"
+           "    dry-run\n"
            "\n"
-           "    --version\n"
+           "    -h --help --print-help      Print this message\n"
            "\n"
-           "    --posixly-correct\n"
+           "    --version                   Print version info\n"
            "\n"
-           "    --auto-disable-prefix\n"
+           "    --posixly-correct --no-p    Parse options only up to first non-option argume\n"
+           "    osixly-correct              nt (not implemented)\n"
            "\n"
-           "    --auto-prefix\n"
+           "    --auto-disable-prefix       String used to generate disable flag names\n"
            "\n"
-           "    --auto-case\n"
+           "    --auto-prefix               String used to generate option names\n"
            "\n"
-           "    --parse-mode\n"
+           "    --auto-case                 Case conversion used to generate option names fr\n"
+           "                                om field names (not implemented)\n"
            "\n"
-           "    --gnu-autoformat\n"
+           "    --parse-mode                Generated CLI parsing mode (not implemented)\n"
+           "\n"
+           "    --gnu-autoformat --no-gn    Automatically prepend option names with hyphens \n"
+           "    u-autoformat                in GNU mode\n"
+           "\n"
+           "    --generate-configfile --    Enable generation of configuration file parsing \n"
+           "    no-generate-configfile      functionality\n"
            "\n"
     );
 }

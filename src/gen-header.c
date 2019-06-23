@@ -7,6 +7,8 @@
 #include "cfg-names.h"
 #include "lib/array.h"
 
+#include "cfg.ccnm.h"
+
 #define out(...) fprintf(fp, __VA_ARGS__)
 #define IND "    "
 
@@ -94,7 +96,11 @@ void generate_header(Configuration *configuration, FILE *fp) {
         out("\n");
     }
 
-    out("CCNM_RESULT ccnm_parse(int argc, char *argv[], FILE *fp);\n");
+    if (globals.generate_configfile) {
+        out("CCNM_RESULT ccnm_parse(int argc, char *argv[], FILE *fp);\n");
+    } else {
+        out("CCNM_RESULT ccnm_parse(int argc, char *argv[]);\n");
+    }
     out("void ccnm_print_usage(void);\n");
     out("void ccnm_free(void);\n\n");
 

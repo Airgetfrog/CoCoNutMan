@@ -13,24 +13,50 @@ config globals {
         string infile {
             argument
         },
-        string outfile = "cfg.ccnm.c",
-        string headerfile = "cfg.ccnm.h",
+        string outfile = "cfg.ccnm.c" {
+            info = "Location for output .c file"
+        },
+        string headerfile = "cfg.ccnm.h" {
+            info = "Location for output .h file"
+        },
         bool verbose_flag {
-            info = "print configuration tree",
+            info = "Print configuration tree before outputting files",
             options = {v, verbose},
             disable = {}
         },
+        bool dry_run {
+            info = "Do not output files",
+            options = {d, dry, dry-run}
+        },
         bool help_flag {
-            info = "print this message very long message wow such help very usage wow wow",
-            options = {h, help, print-help, this-is-a-very-long-option-wow},
+            info = "Print this message",
+            options = {h, help, print-help},
             disable = {}
         },
-        bool version { disable = {} },
-        bool posixly_correct,
-        string auto_disable_prefix = "no-",
-        string auto_prefix = "--",
-        auto_case_mode auto_case = kebab,
-        argument_parse_mode parse_mode = GNU,
-        bool gnu_autoformat = true
+        bool version {
+            info = "Print version info",
+            disable = {}
+        },
+        bool posixly_correct {
+            info = "Parse options only up to first non-option argument (not implemented)"
+        },
+        string auto_disable_prefix = "no-" {
+            info = "String used to generate disable flag names"
+        },
+        string auto_prefix = "--" {
+            info = "String used to generate option names"
+        },
+        auto_case_mode auto_case = kebab {
+            info = "Case conversion used to generate option names from field names (not implemented)"
+        },
+        argument_parse_mode parse_mode = GNU {
+            info = "Generated CLI parsing mode (not implemented)"
+        },
+        bool gnu_autoformat = true {
+            info = "Automatically prepend option names with hyphens in GNU mode"
+        },
+        bool generate_configfile = true {
+            info = "Enable generation of configuration file parsing functionality"
+        }
     }
 }

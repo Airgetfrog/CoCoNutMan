@@ -612,6 +612,12 @@ info: T_INFO '=' T_STRINGVAL ','
         new_location($$, &@$);
         new_location($3, &@3);
     }
+    | T_INFO '=' T_STRINGVAL
+    {
+        $$ = $3;
+        new_location($$, &@$);
+        new_location($3, &@3);
+    }
     | %empty
     {
         $$ = NULL;
