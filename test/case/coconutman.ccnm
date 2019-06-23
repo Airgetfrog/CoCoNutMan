@@ -1,0 +1,36 @@
+enum argument_parse_mode {
+    prefix = APM,
+    values = {GNU, autoexpand, extended, exact}
+}
+
+enum auto_case_mode {
+    prefix = ACM,
+    values = {kebab, pascal, none}
+}
+
+config globals {
+    fields = {
+        string infile {
+            argument
+        },
+        string outfile = "cfg.ccnm.c",
+        string headerfile = "cfg.ccnm.h",
+        bool verbose_flag {
+            info = "print configuration tree",
+            options = {v, verbose},
+            disable = {}
+        },
+        bool help_flag {
+            info = "print this message very long message wow such help very usage wow wow",
+            options = {h, help, print-help, this-is-a-very-long-option-wow},
+            disable = {}
+        },
+        bool version { disable = {} },
+        bool posixly_correct,
+        string auto_disable_prefix = "no-",
+        string auto_prefix = "--",
+        auto_case_mode auto_case = kebab,
+        argument_parse_mode parse_mode = GNU,
+        bool gnu_autoformat = true
+    }
+}

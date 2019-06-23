@@ -15,6 +15,7 @@
 #include "coconutman.lexer.h"
 
 extern bool yy_lex_keywords;
+extern bool yy_lex_options;
 
 /* Array to append config entries to during reducing */
 static array *config_enums;
@@ -109,6 +110,7 @@ static array *list_append(struct array *array, void *element,  struct ParserLoca
 %token T_FIELDS "fields"
 %token T_CONFIGFILE "configfile"
 %token T_OPTIONS "options"
+%token T_DISABLE "disable"
 %token T_RANGE "range"
 %token T_MULTIOPTION "multioption"
 %token T_OPTIONSET "optionset"
@@ -120,9 +122,9 @@ static array *list_append(struct array *array, void *element,  struct ParserLoca
 
 %type<configuration> root
 %type<enum_type> enum
-%type<array> enum_attributes values multioption_attributes options multioption_fields setters optionset_attributes attribute_tokens tokens targetoptions config_attributes config_fields fields field_attributes idlist optionlist nested_id vallist
+%type<array> enum_attributes values multioption_attributes options multioption_fields setters optionset_attributes attribute_tokens tokens targetoptions config_attributes config_fields fields field_attributes idlist optionlist nested_id vallist disable
 %type<attribute> enum_attribute multioption_attribute optionset_attribute config_attribute field_attribute
-%type<string> prefix separator info
+%type<string> prefix separator info id option
 %type<multioption> multioption
 %type<setter> setter
 %type<option_set> optionset
@@ -177,7 +179,7 @@ entry: entry enum { array_append(config_enums, $2); }
     }
     ;
 
-enum: T_ENUM T_ID '{' enum_attributes '}'
+enum: T_ENUM id '{' enum_attributes '}'
     {
         $$ = create_enum($2, $4);
         new_location($$, &@$);
@@ -199,14 +201,22 @@ enum_attribute: prefix { $$ = create_attribute_string(E_prefix, $1); new_locatio
     | values { $$ = create_attribute_array(E_values, $1); new_location($$, &@$); }
     ;
 
-prefix: T_PREFIX '=' T_ID
+prefix: T_PREFIX '=' id
     {
         $$ = $3;
         new_location($3, &@3);
     }
     ;
 
-values: T_VALUES '=' '{' idlist '}' { $$ = $4; new_location($4, &@3); };
+values: T_VALUES '='
+    {
+        yy_lex_keywords = false;
+    }
+    '{' idlist '}'
+    {
+        $$ = $5; new_location($5, &@4);
+        yy_lex_keywords = true;
+    };
 
 multioption: T_MULTIOPTION '{' info multioption_attributes '}'
     {
@@ -229,15 +239,45 @@ multioption_attribute: options { $$ = create_attribute_array(MO_options, $1); ne
     | multioption_fields { $$ = create_attribute_array(MO_fields, $1); new_location($$, &@$); }
     ;
 
-options: T_OPTIONS '=' T_OPTION
+optseq: T_OPTIONS '=' { yy_lex_options = true; };
+
+options: optseq option
     {
         $$ = create_array();
-        array_append($$, $3);
-        new_location($3, &@3);
+        array_append($$, $2);
+        new_location($2, &@2);
+        yy_lex_options = false;
     }
-    | T_OPTIONS '=' '{' optionlist '}'
+    | optseq '{' optionlist '}'
     {
-        $$ = $4;
+        $$ = $3;
+        yy_lex_options = false;
+    }
+    | optseq '{' '}'
+    {
+        $$ = create_array();
+        yy_lex_options = false;
+    }
+    ;
+
+disableeq: T_DISABLE '=' { yy_lex_options = true; };
+
+disable: disableeq option
+    {
+        $$ = create_array();
+        array_append($$, $2);
+        new_location($2, &@2);
+        yy_lex_options = false;
+    }
+    | disableeq '{' optionlist '}'
+    {
+        $$ = $3;
+        yy_lex_options = false;
+    }
+    | disableeq '{' '}'
+    {
+        $$ = create_array();
+        yy_lex_options = false;
     }
     ;
 
@@ -262,7 +302,7 @@ setter: nested_id '=' val
     {
         $$ = create_setter($1, NULL);
     }
-    | nested_id '=' '[' vallist ']'
+    | nested_id '=' '{' vallist '}'
     {
         FieldValue *fv = create_field_value_array($4);
         $$ = create_setter($1, fv);
@@ -304,7 +344,7 @@ tokens: tokens ',' token
     }
     ;
 
-token: T_ID '=' '{' setters '}'
+token: id '=' '{' setters '}'
     {
         $$ = create_token($1, $4);
         new_location($1, &@1);
@@ -316,9 +356,18 @@ separator: T_SEPARATOR '=' T_STRINGVAL
         new_location($3, &@3);
     };
 
-targetoptions: T_TARGETOPTIONS '=' '{' optionlist '}' { $$ = $4; };
+toptseq: T_TARGETOPTIONS '='
+    {
+        yy_lex_options = true;
+    };
 
-config: T_CONFIG T_ID '{' info config_attributes '}'
+targetoptions: toptseq '{' optionlist '}'
+    {
+        $$ = $3;
+        yy_lex_options = false;
+    };
+
+config: T_CONFIG id '{' info config_attributes '}'
     {
         $$ = create_config($2, $4, $5);
         new_location($2, &@2);
@@ -357,63 +406,63 @@ field: config
     {
         $$ = create_field_config($1);
     }
-    | type T_LIST T_ID defaultval '{' info field_attributes '}'
+    | type T_LIST id defaultval '{' info field_attributes '}'
     {
         $$ = create_field($3, $6, $1, true, $4, $7);
         new_location($3, &@3);
     }
-    | type T_ID defaultval '{' info field_attributes '}'
+    | type id defaultval '{' info field_attributes '}'
     {
         $$ = create_field($2, $5, $1, false, $3, $6);
         new_location($2, &@2);
     }
-    | type T_LIST T_ID defaultval '{' info '}'
+    | type T_LIST id defaultval '{' info '}'
     {
         $$ = create_field($3, $6, $1, true, $4, create_array());
         new_location($3, &@3);
     }
-    | type T_ID defaultval '{' info '}'
+    | type id defaultval '{' info '}'
     {
         $$ = create_field($2, $5, $1, false, $3, create_array());
         new_location($2, &@2);
     }
-    | type T_LIST T_ID defaultval
+    | type T_LIST id defaultval
     {
         $$ = create_field($3, NULL, $1, true, $4, create_array());
         new_location($3, &@3);
     }
-    | type T_ID defaultval
+    | type id defaultval
     {
         $$ = create_field($2, NULL, $1, false, $3, create_array());
         new_location($2, &@2);
     }
-    | T_ID T_LIST T_ID defaultval '{' info field_attributes '}'
+    | id T_LIST id defaultval '{' info field_attributes '}'
     {
         $$ = create_field_enum($3, $6, FT_enum, true, $4, $7, $1);
         new_location($3, &@3);
     }
-    | T_ID T_ID defaultval '{' info field_attributes '}'
+    | id id defaultval '{' info field_attributes '}'
     {
         $$ = create_field_enum($2, $5, FT_enum, false, $3, $6, $1);
         new_location($2, &@2);
     }
-    | T_ID T_LIST T_ID defaultval '{' info '}'
+    | id T_LIST id defaultval '{' info '}'
     {
         $$ = create_field_enum($3, $6, FT_enum, true, $4, create_array(), $1);
         new_location($3, &@3);
     }
-    | T_ID T_ID defaultval '{' info '}'
+    | id id defaultval '{' info '}'
     {
         $$ = create_field_enum($2, $5, FT_enum, false, $3, create_array(), $1);
         new_location($2, &@2);
     }
-    | T_ID T_LIST T_ID defaultval
+    | id T_LIST id defaultval
     {
         $$ = create_field_enum($3, NULL, FT_enum, true, $4, create_array(), $1);
         new_location($1, &@1);
         new_location($3, &@3);
     }
-    | T_ID T_ID defaultval
+    | id id defaultval
     {
         $$ = create_field_enum($2, NULL, FT_enum, false, $3, create_array(), $1);
         new_location($1, &@1);
@@ -435,6 +484,12 @@ field_attribute: configfile { $$ = create_attribute_bool(F_configfile, $1); new_
     | options
     {
         $$ = create_attribute_array(F_options, $1);
+        new_location($1, &@1);
+        new_location($$, &@$);
+    }
+    | disable
+    {
+        $$ = create_attribute_array(F_disable, $1);
         new_location($1, &@1);
         new_location($$, &@$);
     }
@@ -481,7 +536,7 @@ type: T_BOOL { $$ = FT_bool; }
     ;
 
 defaultval: '=' val { $$ = $2; }
-    | '=' '[' vallist ']'
+    | '=' '{' vallist '}'
     {
         $$ = create_field_value_array($3);
         new_location($$, &@2);
@@ -494,10 +549,10 @@ val: T_BOOLVAL { $$ = create_field_value_bool($1); new_location($$, &@$); }
     | T_INTVAL { $$ = create_field_value_int($1); new_location($$, &@$); }
     | T_FLOATVAL { $$ = create_field_value_float($1); new_location($$, &@$); }
     | T_STRINGVAL { $$ = create_field_value_string($1); new_location($$, &@$); }
-    | T_ID { $$ = create_field_value_enum($1); new_location($$, &@$); }
+    | id { $$ = create_field_value_enum($1); new_location($$, &@$); }
     ;
 
-vallist: vallist ';' val
+vallist: vallist ',' val
     {
         $$ = list_append($1, $3, &@3);
     }
@@ -508,14 +563,14 @@ vallist: vallist ';' val
     ;
 
 /* Comma separated list of identifiers. */
-idlist: idlist ',' T_ID
+idlist: idlist ',' id
     {
         array_append($1, $3);
         $$ = $1;
         // $$ is an array and should not be added to location list.
         new_location($3, &@3);
     }
-    | T_ID
+    | id
     {
         array *tmp = create_array();
         array_append(tmp, $1);
@@ -525,21 +580,27 @@ idlist: idlist ',' T_ID
     }
     ;
 
-optionlist: optionlist ',' T_OPTION
+id: T_ID { $$ = $1; }
+    ;
+
+optionlist: optionlist ',' option
     {
         $$ = list_append($1, $3, &@3);
     }
-    | T_OPTION
+    | option
     {
         $$ = list_append(NULL, $1, &@1);
     }
     ;
 
-nested_id: nested_id '.' T_ID
+option: T_OPTION { $$ = $1; }
+    ;
+
+nested_id: nested_id '.' id
     {
         $$ = list_append($1, $3, &@3);
     }
-    | T_ID
+    | id
     {
         $$ = list_append(NULL, $1, &@1);
     }

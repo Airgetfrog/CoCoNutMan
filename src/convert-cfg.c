@@ -59,6 +59,14 @@ void convert_attributes(void *node, array *attributes) {
             case F_options:
                 ((Field *)node)->options = attribute->value.array_value;
                 break;
+            case F_disable:
+                field = (Field *)node;
+                if (field->type != FT_bool) {
+                    print_warning(attribute, "field " BQS " has disable options but is of type " BQS, field->id, FieldType_name(field->type));
+                } else {
+                    field->disable_options = attribute->value.array_value;
+                }
+                break;
             case F_argument:
                 ((Field *)node)->is_argument = attribute->value.bool_value;
                 break;
@@ -160,7 +168,7 @@ int check_and_convert_attributes(Configuration *configuration) {
     }
 
     if (configuration->config) {
-        errors += check_and_convert_config(configuration->config, false);
+        errors += check_and_convert_config(configuration->config, true);
     }
 
     return errors;

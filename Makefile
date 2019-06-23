@@ -15,7 +15,7 @@ SRC = $(filter-out $(SRC_DIR)$(LEXER_OUT) $(SRC_DIR)$(PARSER_OUT),$(foreach dir,
 
 LDFLAGS = -lcoconut -L CoCoNut-lib/bin
 
-DEBUG = 
+DEBUG = -ggdb
 
 coconutman: $(LIB_SRC:.c=.o) $(SRC:.c=.o) $(SRC_DIR)$(LEXER_OUT:.c=.o) $(SRC_DIR)$(PARSER_OUT:.c=.o)
 	$(CC) $(DEBUG) -o $(TARGET) $(LIB_SRC:.c=.o) $(SRC:.c=.o) $(SRC_DIR)$(LEXER_OUT:.c=.o) $(SRC_DIR)$(PARSER_OUT:.c=.o) $(LDFLAGS)

@@ -30,10 +30,6 @@ char *Attribute_name(enum Attributes attribute) {
             return "separator";
         case F_range:
             return "range";
-        case F_prefix:
-            return "prefix";
-        case F_values:
-            return "values";
         default:
             return "unnamed attribute";
     }

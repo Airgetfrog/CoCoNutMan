@@ -7,25 +7,20 @@
 
 #include "lib/errors.h"
 #include "lib/print.h"
+#include "lib/str.h"
+
+#include "cfg.ccnm.h"
 
 #include "cfg.h"
 #include "print-cfg.h"
 #include "convert-cfg.h"
 #include "check-cfg.h"
 #include "gen-header.h"
+#include "gen-parser.h"
 
 // Defined in parser
 extern Configuration *parse(FILE *fp);
 extern char *yy_filename;
-
-static void usage(char *program) {
-    char *program_bin = strrchr(program, '/');
-    if (program_bin)
-        program = program_bin + 1;
-
-    printf("Usage: %s [options] [file]\n", program);
-    printf("Options:\n");
-}
 
 static void version(void) {
     printf("coconutman 0.1\nCoCoNut Configuration Manager\n");
@@ -65,57 +60,48 @@ void exit_compile_error(void) {
 }
 
 int main(int argc, char *argv[]) {
-    int verbose_flag = 0;
-    int list_gen_files_flag = 0;
+    FILE *fp;
     int ret = 0;
-    int option_index;
-    int c = 0;
-    char *output_dir = NULL;
-    char *dot_dir = NULL;
 
-    struct option long_options[] = {
-        {"help", no_argument, 0, 'h'},
-        {"version", no_argument, 0, 20},
-        {0, 0, 0, 0}};
-
-    while (1) {
-        c = getopt_long(argc, argv, "v", long_options, &option_index);
-
-        // End of options
-        if (c == -1)
-            break;
-
-        switch (c) {
-        case 20:
-            version();
-            return 0;
-        case 'v':
-            verbose_flag = 1;
-            break;
-        case 'h':
-            usage(argv[0]);
-            return 0;
-        case '?':
-            usage(argv[0]);
-            return 1;
-        }
-    }
-
-    if (optind == argc - 1) {
-        yy_filename = argv[optind];
-    } else {
-        usage(argv[0]);
+    if (ccnm_parse(argc, argv, NULL)) {
         return 1;
     }
 
-    if (output_dir == NULL)
-        output_dir = "generated/";
+    if (globals.version) {
+        version();
+        return 0;
+    }
 
-    FILE *f = open_input_file(yy_filename);
+    if (globals.help_flag) {
+        ccnm_print_usage();
+        return 0;
+    }
 
-    Configuration *configuration = parse(f);
+    if (!globals.infile) {
+        ccnm_print_usage();
+        return 1;
+    }
 
-    fclose(f);
+    if (globals.auto_case != ACM_kebab) {
+        print_error_no_loc("Pascal and none case modes not supported at this time");
+        return 1;
+    }
+
+    if (globals.parse_mode != APM_GNU) {
+        print_error_no_loc("Autoexpand, extended, and exact case modes not supported at this time");
+        return 1;
+    }
+
+    if (globals.gnu_autoformat == false) {
+        print_error_no_loc("GNU autoformat must be enabled in this version");
+        return 1;
+    }
+
+    fp = open_input_file(globals.infile);
+
+    Configuration *configuration = parse(fp);
+
+    fclose(fp);
 
     int errors = 0;
     // has no errors unless -Werror is on, nothing depends on this
@@ -126,18 +112,27 @@ int main(int argc, char *argv[]) {
         exit_compile_error();
     }
 
-    if (verbose_flag) {
+    if (globals.verbose_flag) {
         print_configuration(configuration);
     }
 
-    FILE *fp = fopen("cfg.ccnm.h", "w");
+    fp = fopen(globals.headerfile, "w");
     if (!fp) {
         perror("Opening file failed");
         exit(CANNOT_OPEN_FILE);
     }
     generate_header(configuration, fp);
 
+    fp = fopen(globals.outfile, "w");
+    if (!fp) {
+        perror("Opening file failed");
+        exit(CANNOT_OPEN_FILE);
+    }
+    generate_parser(configuration, fp);
+
     // free_configuration(configuration);
+
+    ccnm_free();
 
     return ret;
 }

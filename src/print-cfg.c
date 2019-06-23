@@ -50,9 +50,9 @@ void print_field_value(FieldValue *value) {
             printf("%s", value->value.bool_value ? "true" : "false");
             break;
         case FT_list:
-            printf("[");
-            print_list(value->value.array_value, &print_field_value, 0, "; ");
-            printf("]");
+            printf("{");
+            print_list(value->value.array_value, &print_field_value, 0, ", ");
+            printf("}");
             break;
     }
 }
@@ -140,20 +140,37 @@ void print_field(Field *field, int inds) {
         if (field->options) {
             printf(",\n");
             print_inds(inds);
-            printf(IND "options = {\n");
-            print_list(field->options, &print_string, inds + 2, ",\n");
-            printf("\n");
+            if (!array_size(field->options)) {
+                printf(IND "options = <none>");
+            } else {
+                printf(IND "options = {\n");
+                print_list(field->options, &print_string, inds + 2, ",\n");
+                printf("\n");
+                print_inds(inds);
+                printf(IND "}");
+            }
+        }
+        if (field->disable_options) {
+            printf(",\n");
             print_inds(inds);
-            printf(IND "}");
+            if (!array_size(field->disable_options)) {
+                printf(IND "disable = <none>");
+            } else {
+                printf(IND "disable = {\n");
+                print_list(field->disable_options, &print_string, inds + 2, ",\n");
+                printf("\n");
+                print_inds(inds);
+                printf(IND "}");
+            }
         }
         if (field->is_argument) {
             printf(",\n");
             print_inds(inds);
             printf(IND "argument");
-        } else if (field->configfile) {
+        } else if (!field->configfile) {
             printf(",\n");
             print_inds(inds);
-            printf(IND "configfile = true");
+            printf(IND "configfile = false");
         }
         printf("\n");
         print_inds(inds);

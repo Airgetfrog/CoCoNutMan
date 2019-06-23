@@ -35,6 +35,7 @@ MultiOption *create_multioption(char *info, array *attributes) {
     node->attributes = attributes;
     node->options = NULL;
     node->fields = NULL;
+    node->takes_argument = false;
     return node;
 }
 
@@ -83,10 +84,12 @@ Field *create_field(char *id, char *info, enum FieldType type, bool is_list, Fie
     node->attributes = attributes;
     node->configfile = false;
     node->options = NULL;
+    node->disable_options = NULL;
     node->is_argument = false;
     node->separator = NULL;
     node->range = NULL;
     node->enum_id = NULL;
+    node->enum_struct = NULL;
     return node;
 }
 
@@ -101,10 +104,12 @@ Field *create_field_enum(char *id, char *info, enum FieldType type, bool is_list
     node->attributes = attributes;
     node->configfile = false;
     node->options = NULL;
+    node->disable_options = NULL;
     node->is_argument = false;
     node->separator = NULL;
     node->range = NULL;
     node->enum_id = enum_id;
+    node->enum_struct = NULL;
     return node;
 }
 

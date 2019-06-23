@@ -49,6 +49,7 @@ typedef enum Attributes {
     C_fields,
     F_configfile,
     F_options,
+    F_disable,
     F_argument,
     F_separator,
     F_range
@@ -76,6 +77,7 @@ typedef struct MultiOption {
     array *attributes;
     array *options;
     array *fields;
+    bool takes_argument;
 } MultiOption;
 
 typedef struct Setter {
@@ -117,10 +119,12 @@ typedef struct Field {
     array *attributes;
     bool configfile;
     array *options;
+    array *disable_options;
     bool is_argument;
     char *separator;
     struct Range *range;
     char *enum_id;
+    struct Enum *enum_struct;
 } Field;
 
 typedef struct Range {

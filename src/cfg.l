@@ -21,6 +21,7 @@
 extern void exit_compile_error();
 
 bool yy_lex_keywords = true;
+bool yy_lex_options = false;
 static char yy_linebuf[500];
 static regex_t regex;
 
@@ -98,7 +99,6 @@ static inline void check_c_keyword(const char *);
 "=" {return '=';}
 "." {return '.';}
 "?" {return '?';}
-";" {return ';';}
 "->" { LEX_KEYWORD(T_ARROW); }
 
 "enum"          { LEX_KEYWORD(T_ENUM);}
@@ -120,6 +120,7 @@ static inline void check_c_keyword(const char *);
 "fields"        { LEX_KEYWORD(T_FIELDS); }
 "configfile"    { LEX_KEYWORD(T_CONFIGFILE); }
 "options"       { LEX_KEYWORD(T_OPTIONS); }
+"disable"       { LEX_KEYWORD(T_DISABLE); }
 "range"         { LEX_KEYWORD(T_RANGE); }
 "multioption"   { LEX_KEYWORD(T_MULTIOPTION); }
 "optionset"     { LEX_KEYWORD(T_OPTIONSET); }
@@ -130,23 +131,38 @@ static inline void check_c_keyword(const char *);
 "list"          { LEX_KEYWORD(T_LIST); }
 
 [A-Za-z][A-Za-z0-9_]*  {
+    if (yy_lex_options) {
+        yylval.string = strdup(yytext);
+        return T_OPTION;
+    }
     // Identifier start with a letter and can have numbers and underscores.
     yylval.string = strdup(yytext);
     check_c_keyword(yylval.string);
     return T_ID; }
-[-+][-A-Za-z][-A-Za-z0-9]*  {
-    yylval.string = strdup(yytext);
-    check_c_keyword(yylval.string);
-    return T_OPTION; }
 -?[0-9]+\.[0-9]+ {
+    if (yy_lex_options) {
+        yylval.string = strdup(yytext);
+        return T_OPTION;
+    }
     // (negative) floating point numbers
     yylval.fval = strtold(yytext, NULL); return T_FLOATVAL;}
 -[0-9]+ {
+    if (yy_lex_options) {
+        yylval.string = strdup(yytext);
+        return T_OPTION;
+    }
     // (negative) integer numbers
     yylval.intval = (int64_t)strtoll(yytext, NULL, 10); return T_INTVAL;}
 [0-9]+ {
+    if (yy_lex_options) {
+        yylval.string = strdup(yytext);
+        return T_OPTION;
+    }
     // (positive) integer numbers
     yylval.uintval = (uint64_t)strtoull(yytext, NULL, 10); return T_UINTVAL;}
+[-+_~!A-Za-z0-9]+  {
+    yylval.string = strdup(yytext);
+    return T_OPTION; }
 
 \"(\\.|[^\\"])*\"   {
     // " < fix atom syntax highlighting

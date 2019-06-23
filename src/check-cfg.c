@@ -6,6 +6,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
+
+#include "cfg.ccnm.h"
 
 #include "cfg.h"
 #include "cfg-names.h"
@@ -46,16 +49,40 @@ static void free_info(struct Info *info) {
  * Used for fields without options that are not arguments.
  */
 char *generate_option(char *id) {
-    char *option = mem_alloc(sizeof(char) * strlen(id) + 3);
-    memmove(option + 2, id, strlen(id) + 1);
-    option[0] = '-';
-    option[1] = '-';
-    for (size_t i = 0; i < strlen(option); i++) {
-        if (option[i] == '_') {
-            option[i] = '-';
+    if (!(globals.gnu_autoformat && globals.parse_mode == APM_GNU)) {
+        id = ccn_str_cat(globals.auto_prefix, id);
+    } else {
+        id = strdup(id);
+    }
+    if (globals.auto_case == ACM_kebab) {
+        for (size_t i = 0; i < strlen(id); i++) {
+            if (id[i] == '_') {
+                id[i] = '-';
+            }
         }
     }
-    return option;
+    return id;
+}
+
+char *generate_list_length_field_id(char *id) {
+    if (globals.auto_case == ACM_kebab) {
+        return ccn_str_cat(id, "_length");
+    }
+}
+
+int check_options(array *options) {
+    if (globals.parse_mode != APM_GNU) {
+        return 0;
+    }
+    for (size_t i = 0; i < array_size(options); i++) {
+        char *option = (char *)array_get(options, i);
+        for (size_t j = 0; j < strlen(option); j++) {
+            if (option[j] != '-' && !isalnum(option[j])) {
+                return 1;
+            }
+        }
+    }
+    return 0;
 }
 
 int check_enum(struct Info *info, Enum *enum_struct) {
@@ -165,6 +192,9 @@ int check_value(struct Info *info, FieldValue *value, Field *field, bool is_list
                 print_error(value, BQS " is not a valid value for enum " BQS, fvid, field->enum_id);
                 print_note(enum_struct, "enum " BQS " defined here", field->enum_id);
                 errors++;
+            } else {
+                value->value.string_value = ccn_str_cat(ccn_str_cat(enum_struct->prefix, "_"), value->value.string_value);
+                field->enum_struct = enum_struct;
             }
         }
     }
@@ -189,11 +219,35 @@ int check_field(struct Info *info, Field *field) {
         errors++;
     }
 
+    // same
+    if (field->is_argument && field->default_value) {
+        print_error(field->default_value, "field " BQS " has a default value but is an argument", field->id);
+        errors++;
+    }
+
+    // same
+    if (field->is_argument && field->type == FT_bool) {
+        print_error(field->default_value, "field " BQS " is of type " BQS " but is an argument", field->id, FieldType_name(field->type));
+        errors++;
+    }
+
     if (!field->options) {
         field->options = create_array();
         if (!field->is_argument) {
             array_append(field->options, generate_option(field->id));
         }
+    }
+
+    if (field->type == FT_bool && !field->disable_options) {
+        field->disable_options = create_array();
+        if (!field->is_argument) {
+            array_append(field->disable_options, generate_option(ccn_str_cat(globals.auto_disable_prefix, field->id)));
+        }
+    }
+
+    errors += check_options(field->options);
+    if (field->type == FT_bool) {
+        errors += check_options(field->disable_options);
     }
 
     for (size_t i = 0; i < array_size(field->options); i++) {
@@ -204,11 +258,6 @@ int check_field(struct Info *info, Field *field) {
             errors++;
         }
         smap_insert(info->options, option, field);
-    }
-
-    if (field->is_list && !field->separator) {
-        print_error(field, "attribute " BQS " missing from field " BQS "of type " BQS, Attribute_name(F_separator), field->id, FieldType_name(FT_list));
-        errors++;
     }
 
     if (field->enum_id) {
@@ -236,7 +285,7 @@ int check_field(struct Info *info, Field *field) {
                 field->default_value = create_field_value_float(0);
                 break;
             case FT_string:
-                field->default_value = create_field_value_string(NULL);
+                field->default_value = create_field_value_string("");
                 break;
             case FT_bool:
                 field->default_value = create_field_value_bool(false);
@@ -244,9 +293,20 @@ int check_field(struct Info *info, Field *field) {
         }
     }
 
+    if (field->separator) {
+        if (strlen(field->separator) != 1) {
+            print_error(field->separator, "separator must be a single character");
+            errors++;
+        }
+    }
+
     if (field->range) {
         errors += field->range->left_bound && check_value(info, field->range->left_bound, field, false);
         errors += field->range->right_bound && check_value(info, field->range->right_bound, field, false);
+    }
+
+    if (!field->info) {
+        field->info = "";
     }
 
     return errors;
@@ -261,19 +321,43 @@ int check_config(struct Info *info, Config *config) {
     }
 
     smap_t *smap = smap_init(32);
+    smap_t *length_smap = smap_init(32);
 
     for (size_t i = 0; i < array_size(config->fields); i++) {
         Field *field = (Field *)array_get(config->fields, i);
+        // first check normal redefinition
         Field *result = (Field *)smap_retrieve(smap, field->id);
         if (result) {
             print_error(field->id, "redefinition of field " BQS, field->id);
             print_note(result->id, "previous definition of " BQS " was here", field->id);
             errors++;
         }
+
+        // then check clash with generated names
+        result = (Field *)smap_retrieve(length_smap, field->id);
+        if (result) {
+            print_error(field->id, "field " BQS " clashes with previously generated list length field of field " BQS, field->id, result->id);
+            print_note(result->id, "list definition of " BQS " was here", result->id);
+            errors++;
+        }
+
         smap_insert(smap, field->id, field);
+
+        // then if list, generate name and check for clash
+        if (field->is_list) {
+            char *length_id = generate_list_length_field_id(field->id);
+            result = (Field *)smap_retrieve(smap, length_id);
+            if (result) {
+                print_error(field->id, "generated list length field " BQS " of field " BQS " clashes with previously defined field", field->id, length_id);
+                print_note(result->id, "previous definition of " BQS " was here", field->id);
+                errors++;
+            }
+            smap_insert(length_smap, length_id, field);
+        }
     }
 
     config->smap = smap;
+    smap_free(length_smap);
 
     for (size_t i = 0; i < array_size(config->fields); i++) {
         Field *field = (Field *)array_get(config->fields, i);
@@ -283,6 +367,10 @@ int check_config(struct Info *info, Config *config) {
             errors += check_field(info, array_get(config->fields, i));
         }
 
+    }
+
+    if (!config->info) {
+        config->info = "";
     }
 
     return errors;
@@ -339,6 +427,8 @@ int check_multioption(struct Info *info, MultiOption *multioption) {
         smap_insert(info->options, option, option);
     }
 
+    errors += check_options(multioption->options);
+
     if (!multioption->fields) {
         print_error(multioption, "attribute " BQS " missing from multioption", Attribute_name(MO_fields));
         errors++;
@@ -350,14 +440,24 @@ int check_multioption(struct Info *info, MultiOption *multioption) {
         Setter *setter = (Setter *)array_get(multioption->fields, i);
         errors += check_setter(info, setter);
         if (setter->field && !setter->value) {
+            if (setter->field->type == FT_bool) {
+                print_error(setter, "setter takes argument but is of type " BQS, FieldType_name(setter->field->type));
+                errors++;
+                continue;
+            }
             if (!first) {
                 first = setter;
+                multioption->takes_argument = true;
             } else if (first->field->type != setter->field->type) {
                 print_error(setter, "setter takes argument but field type does not match previously seen setter");
                 print_note(first, "previous setter has type " BQS " but current setter has type " BQS, FieldType_name(first->field->type), FieldType_name(setter->field->type));
                 errors++;
             }
         }
+    }
+
+    if (!multioption->info) {
+        multioption->info = "";
     }
 
     return errors;
@@ -390,6 +490,8 @@ int check_optionset(struct Info *info, OptionSet *optionset) {
         }
         smap_insert(info->options, option, option);
     }
+
+    errors += check_options(optionset->options);
 
     if (!optionset->tokens) {
         print_error(optionset, "attribute " BQS " missing from optionset", Attribute_name(OS_tokens));
@@ -424,12 +526,18 @@ int check_optionset(struct Info *info, OptionSet *optionset) {
         return errors;
     }
 
-    for (size_t i = 0; i < strlen(optionset->separator); i++) {
-        if (optionset->separator[i] == ' ') {
-            print_error(optionset->separator, "spaces not allowed in separator");
-            errors++;
-            break;
+    if (optionset->separator) {
+        for (size_t i = 0; i < strlen(optionset->separator); i++) {
+            if (optionset->separator[i] == ' ') {
+                print_error(optionset->separator, "spaces not allowed in separator");
+                errors++;
+                break;
+            }
         }
+    }
+
+    if (!optionset->info) {
+        optionset->info = "";
     }
 
     return errors;
@@ -447,6 +555,8 @@ int check_targetoptions(struct Info *info, array *targetoptions) {
         }
         smap_insert(info->options, option, option);
     }
+
+    errors += check_options(targetoptions);
 
     return errors;
 }
