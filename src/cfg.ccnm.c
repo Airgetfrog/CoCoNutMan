@@ -7,9 +7,10 @@
 #include <inttypes.h>
 #include <errno.h>
 
-#include "cfg.ccnm.h"
 #include "lib/str.h"
 #include "lib/smap.h"
+
+#include "cfg.ccnm.h"
 
 static const char *argument_parse_mode_args[] = {"GNU", "autoexpand", "extended", "exact"};
 static const char *auto_case_mode_args[] = {"kebab", "pascal", "none"};

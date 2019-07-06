@@ -374,6 +374,31 @@ static const char *long_configfile_literal =
     NL
     ;
 
+void generate_relative_path(char *src, char *dst, FILE *fp) {
+    array *src_parts = ccn_str_split(src, '/');
+    array *dst_parts = ccn_str_split(dst, '/');
+    size_t src_size = array_size(src_parts);
+    size_t dst_size = array_size(dst_parts);
+
+    for (size_t i = 0; i < src_size; i++) {
+        if (!ccn_str_equal(array_get(src_parts, i), array_get(dst_parts, i))) {
+            for (size_t j = i; j < src_size - 1; j++) {
+                out("../");
+            }
+            for (size_t j = i; j < dst_size - 1; j++) {
+                out("%s/", (char *)array_get(dst_parts, j));
+            }
+            if (i < dst_size) {
+                out("%s", (char *)array_get(dst_parts, dst_size - 1));
+            }
+            break;
+        }
+    }
+
+    array_cleanup(src_parts, &free);
+    array_cleanup(dst_parts, &free);
+}
+
 void generate_includes(FILE *fp) {
     out("#include <stdlib.h>" NL
         "#include <stdio.h>" NL
@@ -384,11 +409,14 @@ void generate_includes(FILE *fp) {
         "#include <inttypes.h>" NL
         "#include <errno.h>" NL
         NL
-        "#include \"cfg.ccnm.h\"" NL
         "#include \"lib/str.h\"" NL
         "#include \"lib/smap.h\"" NL
         NL
     );
+
+    out("#include \"");
+    generate_relative_path(realpath(globals.outfile, NULL), realpath(globals.headerfile, NULL), fp);
+    out("\"" NL NL);
 }
 
 void generate_enum_args(Enum *enum_struct, FILE *fp) {
