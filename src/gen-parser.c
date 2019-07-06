@@ -284,14 +284,16 @@ static const char *long_configfile_literal =
     IND "char *tok;" NL
     IND "char *name;" NL
     IND "char *line;" NL
+    IND "char *dup;" NL
     "};" NL
     NL
-    "struct setting *make_setting(struct file_opt *fopt, char *tok, char *name, char *line) {" NL
+    "struct setting *make_setting(struct file_opt *fopt, char *tok, char *name, char *line, char *dup) {" NL
     IND "struct setting *s = malloc(sizeof(struct setting));" NL
     IND "s->fopt = fopt;" NL
     IND "s->tok = tok;" NL
     IND "s->name = name;" NL
     IND "s->line = line;" NL
+    IND "s->dup = dup;" NL
     IND "return s;" NL
     "}" NL
     NL
@@ -300,6 +302,7 @@ static const char *long_configfile_literal =
     IND "free(s->tok);" NL
     IND "free(s->name);" NL
     IND "free(s->line);" NL
+    IND "free(s->dup);" NL
     IND "free(s);" NL
     "}" NL
     NL
@@ -328,6 +331,7 @@ static const char *long_configfile_literal =
     IND2 "char *tok = s->tok;" NL
     IND2 "char *name = s->name;" NL
     IND2 "char *line = s->line;" NL
+    IND2 "char *dup = s->line;" NL
     IND2 "switch (option->type) {" NL
     IND3 "case 0:" NL
     IND4 "errors += parse_uint_helper(option->loc, option->arr, NULL, tok, \"setting\", name, 0, option->vl, option->lo, option->l.ui, option->vr, option->ro, option->r.ui);" NL
@@ -339,7 +343,7 @@ static const char *long_configfile_literal =
     IND4 "errors += parse_int_helper(option->loc, option->arr, NULL, tok, \"setting\", name, 0, option->vl, option->lo, option->l.d, option->vr, option->ro, option->r.d);" NL
     IND4 "break;" NL
     IND3 "case 3:" NL
-    IND4 "errors += parse_quoted_string_helper(option, tok, line, name);" NL
+    IND4 "errors += parse_quoted_string_helper(option, dup, line, name);" NL
     IND4 "break;" NL
     IND3 "case 4:" NL
     IND4 "errors += parse_bool_string_helper(option, tok, name);" NL
@@ -681,12 +685,15 @@ void generate_parse_configuration_file(Configuration *configuration, FILE *fp) {
         IND4 "printf(\"Unrecognized sequence on line %%zu.\\n\", linenr);" NL
         IND4 "continue;" NL
         IND3 "}" NL
+        IND3 "char *dup = strdup(tok);" NL
         IND3 "if (!(tok = strtok(NULL, \" \\t\\n\"))) {" NL
         IND4 "printf(\"Unexpected end of line on line %%zu.\\n\", linenr);" NL
+        IND4 "free(dup);" NL
         IND4 "continue;" NL
         IND3 "}" NL
         IND3 "if (current_target) {" NL
-        IND4 "array_append(current_target->settings, make_setting(&options[i], strdup(tok), strdup(name), strdup(line)));" NL
+        IND4 "array_append(current_target->settings, make_setting(&options[i], strdup(tok), strdup(name), strdup(line), strdup(dup)));" NL
+        IND4 "free(dup);" NL
         IND4 "continue;" NL
         IND3 "}" NL
         IND3 "switch (options[i].type) {" NL
@@ -700,7 +707,7 @@ void generate_parse_configuration_file(Configuration *configuration, FILE *fp) {
         IND5 "errors += parse_int_helper(options[i].loc, options[i].arr, NULL, tok, \"setting\", name, 0, options[i].vl, options[i].lo, options[i].l.d, options[i].vr, options[i].ro, options[i].r.d);" NL
         IND5 "break;" NL
         IND4 "case 3:" NL
-        IND5 "errors += parse_quoted_string_helper(&options[i], tok, line, name);" NL
+        IND5 "errors += parse_quoted_string_helper(&options[i], dup, line, name);" NL
         IND5 "break;" NL
         IND4 "case 4:" NL
         IND5 "errors += parse_bool_string_helper(&options[i], tok, name);" NL
@@ -709,6 +716,7 @@ void generate_parse_configuration_file(Configuration *configuration, FILE *fp) {
         IND5 "errors += parse_enum_helper(options[i].loc, options[i].arr, NULL, tok, \"setting\", name, 0, options[i].enum_args, options[i].enum_size);" NL
         IND5 "break;" NL
         IND3 "}" NL
+        IND3 "free(dup);" NL
         IND2 "}" NL
         IND2 "linenr++;" NL
         IND "}" NL

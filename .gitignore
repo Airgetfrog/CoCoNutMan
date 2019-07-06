@@ -1,3 +1,5 @@
+.vscode
+
 coconutman
 src/coconutman.lexer.c
 src/coconutman.lexer.h
