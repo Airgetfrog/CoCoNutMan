@@ -273,8 +273,6 @@ int check_field(struct Info *info, Field *field) {
         errors += check_value(info, field->default_value, field, field->is_list);
     } else if (field->is_list) {
         field->default_value = create_field_value_array(create_array());
-    } else if (field->type == FT_enum) {
-        field->default_value = create_field_value_enum(array_get(smap_retrieve(info->enum_id, field->enum_id), 0));
     } else {
         switch (field->type) {
             case FT_uint:
@@ -289,6 +287,11 @@ int check_field(struct Info *info, Field *field) {
                 break;
             case FT_bool:
                 field->default_value = create_field_value_bool(false);
+                break;
+            case FT_enum:
+                field->default_value = create_field_value_enum(array_get(((Enum *)smap_retrieve(info->enum_id, field->enum_id))->values, 0));
+                // ugly hack to prepend prefix, should fix (code smell)
+                check_value(info, field->default_value, field, field->is_list);
                 break;
         }
     }

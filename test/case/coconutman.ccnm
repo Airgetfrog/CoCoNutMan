@@ -49,7 +49,7 @@ config globals {
         auto_case_mode auto_case = kebab {
             info = "Case conversion used to generate option names from field names (not implemented)"
         },
-        argument_parse_mode parse_mode = GNU {
+        argument_parse_mode parse_mode {
             info = "Generated CLI parsing mode (not implemented)"
         },
         bool gnu_autoformat = true {
